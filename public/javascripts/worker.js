@@ -1354,7 +1354,7 @@ Math.abs = (x) => {
 }
 
 AI = {
-    version: "6.1.4",
+    version: "6.1.5",
     totaldepth: 48,
     ttNodes: 0,
     collisions: 0,
@@ -1379,7 +1379,7 @@ AI = {
     fh: 0,
     random: 0, //40 +depth
     phase: 0,
-    htlength: 4e6,
+    htlength: 6e6,
     pawntlength: 5e5,
     mindepth: [6,6,6,6],
     // mindepth: [0,0,0,0],
@@ -2918,10 +2918,25 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
     AI.qsnodes++
 
     let turn = board.turn
+    let hashkey = board.hashkey
+
+    let ttEntry = this.ttGet(turn, hashkey)
+
+    if (ttEntry && ttEntry.depth === -1) {
+        if (ttEntry.flag === EXACT) {
+            return ttEntry.score
+        } else if (ttEntry.flag === LOWERBOUND) {
+            if (ttEntry.score > alpha) alpha = ttEntry.score
+        } else if (ttEntry.flag === UPPERBOUND) {
+            if (ttEntry.score < beta) beta = ttEntry.score
+        }
+
+        if (alpha >= beta) return ttEntry.score
+    }
+
     let legal = 0
     let standpat = alpha // Only to prevent undefined values for standpat
     
-    let hashkey = board.hashkey
     let incheck = board.isKingInCheck()
 
     let cutNode = !pvNode
@@ -2941,7 +2956,6 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
 
     let moves = board.getMoves(false, true)
     
-    let ttEntry = AI.ttGet(turn, hashkey)
     let score = -INFINITY
     
     moves = AI.sortMoves(board, moves, turn, ply, depth, ttEntry)
@@ -2966,17 +2980,15 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
             board.unmakeMove(move)
 
             if (score >= beta) {
+                AI.ttSave(turn, hashkey, score, LOWERBOUND, -1, move)
                 return score
             }
             
             if (score > alpha) {
+                AI.ttSave(turn, hashkey, score, EXACT, -1, move)
                 alpha = score
             }
         }
-    }
-    
-    if (incheck && legal === 0) {
-        return -MATE + ply
     }
 
     return alpha
@@ -3087,7 +3099,7 @@ function probCut(board, depth, alpha, beta, ply) {
 
 // PRINCIPAL VARIATION SEARCH
 // El método PVS es Negamax + Ventana-Nula
-AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
+AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     // Date.now es un algoritmo que consume mucho tiempo; por esa razón revisa cada 2000 nodos
     // if (AI.nodes % 2000 === 0) console.log('revisa')
     if (AI.iteration > AI.mindepth[AI.phase] && AI.nodes % 2000 === 0) {
@@ -3127,16 +3139,8 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
     let turn = board.turn
     let hashkey = board.hashkey
     let ttEntry = AI.ttGet(turn, hashkey)
-    let pvNode = false
 
     let moves = []
-
-    if (ttEntry) {
-        moves = board.getMoves(false, false)
-        moves = AI.sortMoves(board, moves, turn, ply, depth, ttEntry)
-    
-        pvNode = !!moves[0].tt
-    }
 
     if (pvNode) AI.pvnodes++
 
@@ -3334,9 +3338,9 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
 
             if (legal === 1) {
                 // El primer movimiento se busca con ventana total y sin reducciones
-                score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous)
+                score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
             } else {
-                score = -AI.PVS(board, -beta, -alpha, depth + E - R - 1, ply + 1, dangerous)
+                score = -AI.PVS(board, -beta, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
                     // if (score > alpha + MARGIN3 && depth < 3 && ply < 6) {
@@ -3345,7 +3349,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
                     // }
 
                     R = 0
-                    score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous)
+                    score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
                 }
             }
 
@@ -3362,8 +3366,8 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
                     
                     AI.fh++
 
-                    AI.PV[ply] = move
-                    AI.PV[ply].hashkey = hashkey
+                    // AI.PV[ply] = move
+                    // AI.PV[ply].hashkey = hashkey
 
                     //LOWERBOUND
                     
@@ -3381,12 +3385,13 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous) {
                     
                     return beta
                 }
+                AI.ttSave(turn, hashkey, score, EXACT, depth, move)
                 
                 bestscore = score
                 bestmove = move
                 alpha = score
 
-                if (!move.isCapture) { AI.saveHistory(ply, move, depth) }
+                if (!move.isCapture) { AI.saveHistory(ply, move, depth*depth) }
                 
             } else {
                 if (!move.isCapture) { AI.saveHistory(ply, move, -depth*depth) }
@@ -3514,7 +3519,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    return AI.PVS(board, lowerBound, upperBound, d, 1, false)
+    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
@@ -3522,7 +3527,7 @@ AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     do {
        let beta = f + (f === bound[0])
 
-       f = AI.PVS(board, beta - 1, beta, d, 1, false) //beta - 2 es mejor que beta - 1 (140 ELO)
+       f = AI.PVS(board, beta - 1, beta, d, 1, false, true) //beta - 2 es mejor que beta - 1 (140 ELO)
 
     //    f = AI.BNS(board, beta - 1, beta, d)
        bound[f < beta? 1 : 0] = f
@@ -3702,7 +3707,7 @@ AI.search = function (board, options) {
         AI.timer = Date.now()
 
         AI.timeEnd = AI.timer + AI.milspermove
-        
+    
         board.rephistory.push(board.hashkey)
 
         let depth = 0
