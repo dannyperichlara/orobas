@@ -3173,28 +3173,28 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
 
     let index = hashkey % AI.htlength
 
-    let ttEntry = AI.hashTable[turn][index]
+    // let ttEntry = AI.hashTable[turn][index]
 
-    if ((ttEntry && ttEntry.hashkey === hashkey)) {
+    // if ((ttEntry && ttEntry.hashkey === hashkey)) {
 
-        let visits = ttEntry.visits++
+    //     let visits = ttEntry.visits++
 
-        if (depth >= ttEntry.depth) {
-            AI.hashTable[turn][index] = {
-                hashkey,
-                score,
-                flag,
-                depth,
-                move,
-                visits
-            }
+    //     if (depth >= ttEntry.depth) {
+    //         AI.hashTable[turn][index] = {
+    //             hashkey,
+    //             score,
+    //             flag,
+    //             depth,
+    //             move,
+    //             visits
+    //         }
 
-        } else {
-            AI.hashTable[turn][index].visits++
-        }
+    //     } else {
+    //         AI.hashTable[turn][index].visits++
+    //     }
         
-        return
-    }
+    //     return
+    // }
 
     AI.hashTable[turn][index] = {
         hashkey,
@@ -3665,7 +3665,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
@@ -3739,17 +3739,6 @@ AI.BNS = (board, alpha, beta, depth)=>{
     // AI.ttSave(board.turn, board.hashkey, alpha, EXACT, depth, bestNode)
 
     return alpha
-}
-
-AI.dynamicMargin = (depth)=> {
-    // Base mínima
-    const base = VPAWN/2 | 2;
-
-    // Crece suave según depth (log2 controlado para que no explote)
-    const scaled = Math.floor(12 * Math.log2(depth + 2));
-
-    // Tope razonable para evitar ventanas absurdas
-    return Math.min(base + scaled, 3*VPAWN | 0);
 }
 
 
@@ -3884,10 +3873,8 @@ AI.search = function (board, options) {
 
             let ttEntry = AI.ttGet(board.turn, board.hashkey)
 
-            // margen dinámico según profundidad
-            const margin = AI.dynamicMargin(depth);
-            let alpha = AI.f - margin
-            let beta = AI.f + margin
+            let alpha = depth < 6? -INFINITY : AI.f - SMALLMARGIN
+            let beta = depth < 6? INFINITY : AI.f + SMALLMARGIN
 
             if (false && ttEntry && ttEntry.depth > depth) {
                 AI.f = ttEntry.score
