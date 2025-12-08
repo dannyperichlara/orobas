@@ -1379,7 +1379,7 @@ AI = {
     fh: 0,
     random: 0, //40 +depth
     phase: 0,
-    htlength: 6e6,
+    htlength: 12e6,
     pawntlength: 5e5,
     mindepth: [6,6,6,6],
     // mindepth: [0,0,0,0],
@@ -1388,7 +1388,7 @@ AI = {
     f: 0,
     previousls: 0,
     lastscore: 0,
-    nullWindowFactor: 4 // 330 ELO
+    nullWindowFactor: 20 // 330 ELO
 }
 
 // ÍNDICES
@@ -3343,60 +3343,46 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     let pruneLimit = FUTILITYMARGIN[depth]
     
     if (prune) {
+
         // PROBCUT
         const pc = probCut(board, depth, alpha, beta, ply);
         if (pc !== null) {
             return pc;
         }
-
-        // Futility pruning (105 ELO)
-        // if (staticeval - pruneLimit >= beta) {
-        //     // return beta
-        //     return staticeval
-        // }
-
-        // Null move pruning (128 ELO)
-        // if (alpha < (MATE - ply) && beta > (-MATE + ply) && AI.phase < LATE_ENDGAME) {
-        //     let nullR = 2
-
-        //     // Makes null-move
-        //     board.changeTurn()
+        
+        // RAZORING (Strelka) (0 ELO)
+        // let razoringMargin = staticeval + MARGIN3;
+    
+        // if (razoringMargin < alpha) {
+        //     if (depth == 1) {
+        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+        //         return Math.max(new_razoringMargin, razoringMargin);
+        //     }
+    
+        //     razoringMargin += MARGIN2*depth
+    
+        //     if (razoringMargin < beta && depth <= 3) {
+        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
             
-        //     let nullScore = -AI.PVS(board, -beta, -beta + 1, depth - nullR - 1, ply, true)
-
-        //     // Unmakes null-move
-        //     board.changeTurn()
-
-        //     if (nullScore >= beta) {
-        //         return nullScore
-        //     } else {
-        //         if (nullScore < -MATE + AI.totaldepth) {
-        //             mateE = 1
+        //         if (new_razoringMargin < beta) {
+        //             return Math.max(new_razoringMargin, razoringMargin);
         //         }
         //     }
         // }
-        
-        // RAZORING (Strelka) (0 ELO)
-        let razoringMargin = staticeval + MARGIN3;
-    
-        if (razoringMargin < alpha) {
-            if (depth == 1) {
-                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-                return Math.max(new_razoringMargin, razoringMargin);
-            }
-    
-            razoringMargin += MARGIN2*depth
-    
-            if (razoringMargin < beta && depth <= 3) {
-                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-            
-                if (new_razoringMargin < beta) {
-                    return Math.max(new_razoringMargin, razoringMargin);
-                }
-            }
-        }
 
     }
+
+    // NULL MOVE PRUNING
+    // if (!incheck && depth >= 3 && AI.phase < LATE_ENDGAME) {
+    //     const R = 2 + (depth / 4)|0; // reducción clásica
+    //     board.changeTurn();
+    //     const score = -AI.PVS(board, -beta, -beta + 1, depth - 1 - R, ply + 1, dangerous, true)
+    //     board.changeTurn();
+
+    //     if (score >= beta) return score; // cutoff
+    // }
+
+
 
     // IID (9 ELO)
     // if (!ttEntry && depth > 2) depth-- 
@@ -3503,10 +3489,10 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
-                    // if (score > alpha + MARGIN1 && depth < 3) {
-                    //     E = 1
-                    //     AI.uctnodes++
-                    // }
+                    if (score > alpha + MARGIN1 && depth < 3) {
+                        E = 1
+                        AI.uctnodes++
+                    }
 
                     R = 0
                     score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
@@ -3679,7 +3665,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
