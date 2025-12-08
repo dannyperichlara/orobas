@@ -1544,7 +1544,7 @@ for (let depth = 0; depth < AI.totaldepth + 1; depth++) {
     AI.LMR_TABLE[depth] = new Array(218)
 
     for (let moves = 1; moves < 218; moves++) {
-        AI.LMR_TABLE[depth][moves] = Math.round(Math.log(depth)*Math.log(moves)/2)
+        AI.LMR_TABLE[depth][moves] = Math.round(Math.log(depth)*Math.log(moves)/2) | 0
         // AI.LMR_TABLE[depth][moves] =
         //     (depth >= 3 && moves >= 3) &&               // condiciones mínimas
         //     Math.min(
@@ -1630,7 +1630,7 @@ AI.createTables = function (board, tt, ev, hh, pp) {
         AI.collisions = 0
         AI.ttGets = 0
 
-        AI.hashTable = new Array(this.htlength).fill(null)
+        AI.hashTable = (new Array(this.htlength)).fill(null)
     }
 
     if (ev) {
@@ -1679,215 +1679,6 @@ AI.randomizePSQT = function () {
         }
     }
 }
-
-// FUNCIÓN DE EVALUACIÓN DE LA POSICIÓN
-// AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSoFar) {
-
-//     let cutNode = !pvNode
-//     let repetitions = 0
-
-//     // Repetitions (+14 ELO)
-//     for (let i = board.rephistory.length - 2; i >= 0; i-- ) {
-//         if (board.hashkey === board.rephistory[i]) {
-//             repetitions++
-
-//             if (repetitions > 1) {
-//                 console.log('draw')
-//                 return DRAW
-//             }
-//         }
-//     }
-
-//     let progress = 100 * (1 - AI.totalmaterial / AI.maxMaterialValue) | 0
-
-//     AI.phase = progress > AI.PHASELIMITS[2]? 3 : (progress > AI.PHASELIMITS[1]? 2 : (progress > AI.PHASELIMITS[0]? 1 : 0))
-
-//     if (!AI.phase) AI.phase = 0
-    
-//     let turn = board.turn
-//     let sign = turn === WHITE? 1 : -1
-    
-//     let evalEntry = AI.evalTable[board.hashkey % this.htlength]
-    
-//     if (evalEntry && evalEntry.hashkey === board.hashkey) {
-//         this.evalhashnodes++
-//         return sign * Math.round(evalEntry.score / AI.nullWindowFactor)
-//         // return sign * Math.round((evalEntry.score) / AI.nullWindowFactor)
-//     }
-
-//     this.evalnodes++
-    
-//     // let t0 = Date.now()
-
-//     alpha = alpha * this.nullWindowFactor | 0
-//     beta = beta * this.nullWindowFactor | 0
-
-
-//     let score = (AI.random? Math.random()*AI.random - AI.random/2 | 0 : 0)
-
-//     let openingMaterial = 0
-//     let endgameMaterial = 0
-
-
-//     let openingPsqt = 0
-//     let endgamePsqt = 0
-
-//     let tempTotalMaterial = 0
-
-//     let pieceKingDistance = 0
-
-//     let pieceCount = new Array(13).fill(0)
-
-//     let pieces = {
-//         [P]: [],
-//         [N]: [],
-//         [B]: [],
-//         [R]: [],
-//         [Q]: [],
-//         [K]: [],
-
-//         [p]: [],
-//         [n]: [],
-//         [b]: [],
-//         [r]: [],
-//         [q]: [],
-//         [k]: [],
-//     }
-
-//     for (let i = 0; i < 120; i++) {
-//         if (i & 0x88) {
-//             i+=7
-//             continue
-//         }
-
-//         let piece = board.board[i]
-        
-//         if (!piece) {
-//             continue
-//         }
-
-//         pieces[piece].push(i)
-
-//         pieceCount[piece]++
-
-//         let turn = board.color(piece)
-//         let sign = turn === WHITE? 1 : -1
-
-//         if (AI.phase <= MIDGAME) {
-//             if (piece === B && board.board[i + 16] === P) score -= VPAWN
-//             if (piece === b && board.board[i - 16] === p) score += VPAWN
-//         }
-
-//         let distance = AI.manhattanDistance(board,i,turn === WHITE? board.blackKingIndex : board.whiteKingIndex)
-
-//         pieceKingDistance += AI.PIECEKINGDISTANCE[piece][distance]
-
-//         let piecetype = ABS[piece]
-//         let index = turn === WHITE? i : (112^i)
-
-//         //PSQT
-//         let pieceOpeningPSQT = (AI.PSQT_OPENING[piecetype][index])
-//         let pieceEndgamePSQT = (AI.PSQT_LATE_ENDGAME[piecetype][index])
-//         // console.log(AI.PIECE_VALUES[OPENING][piece], AI.PIECE_VALUES[OPENING][piece] * pieceOpeningPSQT | 0, AI.PIECE_VALUES[LATE_ENDGAME][piece], AI.PIECE_VALUES[LATE_ENDGAME][piece] * pieceEndgamePSQT | 0)
-
-//         // MATERIAL
-//         openingMaterial += AI.PIECE_VALUES[OPENING][piece] * pieceOpeningPSQT | 0
-//         endgameMaterial += AI.PIECE_VALUES[LATE_ENDGAME][piece] * pieceEndgamePSQT | 0
-
-//         tempTotalMaterial += ABS[piece] === P? 0 : AI.PIECE_VALUES[OPENING][ABS[piece]]    
-        
-//     }
-
-//     AI.totalmaterial = tempTotalMaterial
-
-//     let mgFactor = AI.totalmaterial / AI.maxMaterialValue
-
-//     let egFactor = 1 - mgFactor
-
-//     let material = mgFactor * openingMaterial + egFactor * endgameMaterial | 0
-
-//     // Material
-//     score += material | 0
-
-//     if (AI.phase === LATE_ENDGAME && alpha > VPAWNx3) {
-//         let opponentKing = turn === WHITE? board.blackKingIndex : board.whiteKingIndex
-//         let kingToTheCorner = AI.CENTERMANHATTAN[opponentKing] - 3
-//         let distanceBetweenKings = 8 - AI.manhattanDistance(board, board.whiteKingIndex, board.blackKingIndex)
-
-//         let mopup = 80*(kingToTheCorner + distanceBetweenKings)
-
-//         if (turn === WHITE) {
-//             score += mopup
-//         } else {
-//             score -= mopup
-//         }
-//     }
-
-    
-//     // console.log(score)
-    
-//     score += AI.getStructure(board, pieces[P], pieces[p])
-
-//     score += AI.getPawnShield(board)
-
-        
-//     // let winning = Math.abs(score) > VPAWNx3
-
-//     // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
-//     // let betalazy = score > beta + VPAWNx3
-    
-//     // if (betalazy) {
-//     //     AI.evalTable[board.hashkey % this.htlength] = {
-//     //         hashkey: board.hashkey,
-//     //         score,
-//     //         pvNode
-//     //     }
-        
-//     //     let nullWindowScore = score / AI.nullWindowFactor | 0
-
-//     //     AI.lazynodes++
-
-//     //     return sign * nullWindowScore
-//     // }
-
-//     // let alphalazy = score < alpha - VPAWN3
-
-//     // if (alphalazy) { //  NO AFECTA
-//     //     AI.evalTable[board.hashkey % this.htlength] = {
-//     //         hashkey: board.hashkey,
-//     //         score,
-//     //         pvNode
-//     //     }
-        
-//     //     let nullWindowScore = score / AI.nullWindowFactor | 0
-
-//     //     AI.lazynodes++
-
-//     //     return sign * nullWindowScore
-//     // }
-
-//     if (pvNode) {
-//         // score += AI.getPositional(board, pieces)
-//         // score += AI.getUnderdevelopment(board, pieces)
-//         score += AI.getMobility(board) // +14 ELO
-//         // score += AI.getDefendedPieces(board, pieces)
-//     }
-
-    
-//     // Saves the score in the evaluation table before the tempo bonus
-//     AI.evalTable[board.hashkey % this.htlength] = {
-//         hashkey: board.hashkey,
-//         score,
-//         pvNode
-//     }
-    
-//     let nullWindowScore = score / AI.nullWindowFactor | 0
-
-//     // let t1 = Date.now()
-//     // AI.evalTime += t1 - t0
-
-//     return sign * nullWindowScore
-// }
 
 AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSoFar) {
 
@@ -3666,7 +3457,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
