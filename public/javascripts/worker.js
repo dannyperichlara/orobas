@@ -3160,6 +3160,7 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
     return alpha
 }
 
+// ttSave por depth
 AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
     if (AI.stop) {
         // console.log('stop')
@@ -3173,28 +3174,28 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
 
     let index = hashkey % AI.htlength
 
-    // let ttEntry = AI.hashTable[turn][index]
+    let ttEntry = AI.hashTable[turn][index]
 
-    // if ((ttEntry && ttEntry.hashkey === hashkey)) {
+    if ((ttEntry && ttEntry.hashkey === hashkey)) {
 
-    //     let visits = ttEntry.visits++
+        let visits = ttEntry.visits++
 
-    //     if (depth >= ttEntry.depth) {
-    //         AI.hashTable[turn][index] = {
-    //             hashkey,
-    //             score,
-    //             flag,
-    //             depth,
-    //             move,
-    //             visits
-    //         }
+        if (depth >= ttEntry.depth) {
+            AI.hashTable[turn][index] = {
+                hashkey,
+                score,
+                flag,
+                depth,
+                move,
+                visits
+            }
 
-    //     } else {
-    //         AI.hashTable[turn][index].visits++
-    //     }
+        } else {
+            AI.hashTable[turn][index].visits++
+        }
         
-    //     return
-    // }
+        return
+    }
 
     AI.hashTable[turn][index] = {
         hashkey,
