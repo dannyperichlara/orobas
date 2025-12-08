@@ -1638,25 +1638,22 @@ AI.createTables = function (board, tt, ev, hh, pp) {
     }
 
     if (hh) {
-        AI.history = new Array(AI.totaldepth + 1)
 
-        for (let ply = 0; ply < AI.totaldepth + 1; ply++) {
-            AI.history[ply] = new Map()
-            
-            AI.history[ply][K] = Array(120).fill(0)
-            AI.history[ply][Q] = Array(120).fill(0)
-            AI.history[ply][R] = Array(120).fill(0)
-            AI.history[ply][B] = Array(120).fill(0)
-            AI.history[ply][N] = Array(120).fill(0)
-            AI.history[ply][P] = Array(120).fill(0)
-            
-            AI.history[ply][k] = Array(120).fill(0)
-            AI.history[ply][q] = Array(120).fill(0)
-            AI.history[ply][r] = Array(120).fill(0)
-            AI.history[ply][b] = Array(120).fill(0)
-            AI.history[ply][n] = Array(120).fill(0)
-            AI.history[ply][p] = Array(120).fill(0)
-        }
+        AI.history = new Map()
+        
+        AI.history[K] = Array(120).fill(0)
+        AI.history[Q] = Array(120).fill(0)
+        AI.history[R] = Array(120).fill(0)
+        AI.history[B] = Array(120).fill(0)
+        AI.history[N] = Array(120).fill(0)
+        AI.history[P] = Array(120).fill(0)
+        
+        AI.history[k] = Array(120).fill(0)
+        AI.history[q] = Array(120).fill(0)
+        AI.history[r] = Array(120).fill(0)
+        AI.history[b] = Array(120).fill(0)
+        AI.history[n] = Array(120).fill(0)
+        AI.history[p] = Array(120).fill(0)
 
     }
 
@@ -2846,22 +2843,11 @@ AI.sortMoves = function (board, moves, turn, ply, depth, ttEntry) {
             // }
             
             // CRITERIO 6: Historical moves (107 ELO)
-            let hvalue = AI.history[ply][move.piece][move.to]
+            let hvalue = AI.history[move.piece][move.to]
             move.score += hvalue
             sortedMoves.push(move)
 
             continue
-
-            // if (AI.history[ply][move.piece][move.to] > 0) {
-            //     if (!AI.history[ply]) ply = AI.totaldepth
-    
-            //     let hvalue = AI.history[ply][move.piece][move.to] | 0
-
-            //     if (hvalue > 0) {
-            //         move.score += 1000 + hvalue
-            //     } else {
-            //         move.score += -10000 + hvalue
-            //     }
     
     
             //     sortedMoves.push(move)
@@ -3061,17 +3047,9 @@ AI.ttGet = function (turn, hashkey) {
 }
 
 AI.saveHistory = function (ply, move, value) {
-    let ahead = 8 //plies ahead
-    let limit = this.totaldepth - ahead
     
-    for (let i = 0; i < ahead; i++) {
-        let plyAhead = ply + 2*i
-        
-        if (plyAhead < limit) {
-            AI.history[plyAhead][move.piece][move.to] += value | 0
-        }
-
-    }    
+    AI.history[move.piece][move.to] += value | 0
+  
 }
 
 function probCut(board, depth, alpha, beta, ply) {
@@ -3328,7 +3306,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 R += AI.LMR_TABLE[depth][legal] | 0 // (240 ELO)
                 
                 //History reductions (70 ELO)
-                if (!move.isCapture && AI.history[ply][piece][move.to] < 0) R++
+                if (!move.isCapture && AI.history[piece][move.to] < 0) R++
     
                 if (!move.isCapture && cutNode) {
                     // R++ on Cut-Node (106 ELO)
@@ -3340,7 +3318,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 // El primer movimiento se busca con ventana total y sin reducciones
                 score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
             } else {
-                score = -AI.PVS(board, -beta, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
+                score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
                     // if (score > alpha + MARGIN3 && depth < 3 && ply < 6) {
@@ -3519,7 +3497,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
