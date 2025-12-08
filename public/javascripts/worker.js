@@ -2664,23 +2664,61 @@ AI.getDoubled = (board, pawnindexW, pawnindexB)=>{
     return score
 }
 
+// AI.simpleSEE = (board, move)=> {
+//     let mvvlva = AI.MVVLVASCORES[move.piece][move.capturedPiece]
+
+//     let diff = AI.PIECE_VALUES[OPENING][ABS[move.capturedPiece]] - AI.PIECE_VALUES[OPENING][ABS[move.piece]]
+
+//     if (diff > 0) { // Buena captura
+//         return mvvlva
+//     } else {
+//         if (board.isSquareAttacked(move.to, board.color(move.capturedPiece), false, false)) {
+//             // La pieza está defendida. Mala captura
+//             return mvvlva
+//         } else {
+//             // Pieza gratuita
+//             return 3e8 + mvvlva
+//         }
+//     }
+// }
+
+// pieceValues[x] debe ser un arreglo: [., peón, caballo, alfil, torre, dama, rey]
+// Ej: const pieceValues = [0, 100, 320, 330, 500, 900, 20000];
+
 AI.simpleSEE = (board, move)=> {
-    let mvvlva = AI.MVVLVASCORES[move.piece][move.capturedPiece]
+    // 1. Valor de la pieza que queda capturada
+    const targetPiece = move.capturedPiece 
+    if (!targetPiece) return 0; // no hay ganancia
 
-    let diff = AI.PIECE_VALUES[OPENING][ABS[move.capturedPiece]] - AI.PIECE_VALUES[OPENING][ABS[move.piece]]
+    const capturedValue = AI.PIECE_VALUES[OPENING][ABS[move.capturedPiece]]
 
-    if (diff > 0) { // Buena captura
-        return 2e8 + mvvlva
-    } else {
-        if (board.isSquareAttacked(move.to, board.color(move.capturedPiece), false, false)) {
-            // La pieza está defendida. Mala captura
-            return -50000 + mvvlva
-        } else {
-            // Pieza gratuita
-            return 3e8 + mvvlva
-        }
+    // 2. Valor de la pieza atacante
+    const attackerValue = AI.PIECE_VALUES[OPENING][ABS[move.piece]]
+
+    // Si ya de entrada pierdes más de lo que ganas, SEE es malo
+    if (attackerValue < capturedValue) {
+        return capturedValue - attackerValue;
     }
+
+    // 3. Si la pieza atacante es de igual o mayor valor que la capturada,
+    // verificar quién puede recapturar.
+    //
+    // En modo SIMPLE: si la casilla queda defendida por el rival
+    // asumimos que pierdes el atacante completo (muy simplificado).
+    //
+    // Esto es "suficientemente bueno" para move ordering.
+    //
+    const defenders = board.isSquareAttacked(move.to, board.color(move.capturedPiece), false, false) // tu motor ya debe tener board.attackers()
+
+    if (defenders) {
+        // Pierdes la pieza atacante
+        return capturedValue - attackerValue;
+    }
+
+    // 4. Si nadie recaptura, la ganancia es total
+    return capturedValue;
 }
+
 
 AI.getDefended = (board, pawnindexW, pawnindexB)=>{
     let defendedW = 0
@@ -2740,164 +2778,306 @@ AI.see = function (board, move) {
 
 }
 
-AI.sortMoves = function (board, moves, turn, ply, depth, ttEntry) {
-    if (ply > AI.totaldepth) ply = AI.totaldepth
+// AI.sortMoves = function (board, moves, turn, ply, depth, ttEntry) {
+//     if (ply > AI.totaldepth) ply = AI.totaldepth
 
-    let killer1, killer2
-    let ttMove = null
+//     let killer1, killer2
+//     let ttMove = null
     
-    if (AI.killers) {
-        killer1 = AI.killers[turn][ply][0]
-        killer2 = AI.killers[turn][ply][1]
-    }
+//     if (AI.killers) {
+//         killer1 = AI.killers[turn][ply][0]
+//         killer2 = AI.killers[turn][ply][1]
+//     }
 
-    // let t0 = (new Date).getTime()
+//     // let t0 = (new Date).getTime()
 
-    let sortedMoves = []
-    let unsortedMoves = []
+//     let sortedMoves = []
+//     let unsortedMoves = []
 
-    for (let i = 0, len = moves.length; i < len; i++) {
-        let move = moves[i]
+//     for (let i = 0, len = moves.length; i < len; i++) {
+//         let move = moves[i]
 
-        move.mvvlva = 0
-        move.hvalue = 0
-        move.killer1 = 0
-        move.killer2 = 0
+//         move.mvvlva = 0
+//         move.hvalue = 0
+//         move.killer1 = 0
+//         move.killer2 = 0
+//         move.score = 0
+
+//         let ttEntryMove = false
+
+//         // CRITERION 1: The move is on the Transposition Table (389 ELO)
+//         if (ttEntry && move.key === ttEntry.move.key) {
+//             move.tt = true
+//             ttMove = move
+//             continue
+//         }
+        
+//         if (move.isCapture) {
+//             // move.mvvlva = AI.MVVLVASCORES[move.piece][move.capturedPiece]
+
+//             // move.score += 2e8 + move.mvvlva
+//             move.score += AI.simpleSEE(board, move)
+
+//             sortedMoves.push(move)
+
+//             continue
+//         } else {
+//             // CRITERIO: First killer move
+//             if (killer1 && killer1.key === move.key) {
+//                 move.killer1 = true
+//                 move.score += 6e6
+
+//                 sortedMoves.push(move)
+
+//                 continue
+//             }
+
+//             // CRITERIO: Second killer move
+//             if (killer2 && killer2.key === move.key) {
+//                 move.killer2 = true
+//                 move.score += 5e6
+
+//                 sortedMoves.push(move)
+
+//                 continue
+//             }
+            
+//             // CRITERIO: Promotion
+//             if (move.promotingPiece) {
+//                 move.score += 1e8
+
+//                 sortedMoves.push(move)
+
+//                 continue
+//             }
+
+//             // // CRITERIO: Castle (-18 ELO?)
+//             // if (move.castleSide) {
+
+//             //     if (AI.phase === OPENING) {
+//             //         move.score = 3e8 // igual que capturas sin mlvv
+                
+//             //         sortedMoves.push(move)
+                    
+//             //         continue
+//             //     }
+                    
+//             //     if (AI.phase === MIDGAME) {
+//             //             move.score = 1e7
+                        
+//             //             sortedMoves.push(move)
+                        
+//             //             continue
+//             //     }
+
+//             // }
+
+//             // The move is in the previous Principal Variation (107 ELO)
+//             // if (AI.PV[ply] && AI.PV[ply].key === move.key) {
+//             //     move.pv = true
+//             //     move.score += 1e6
+//             //     sortedMoves.push(move)
+//             //     continue
+//             // }
+            
+//             // CRITERIO 6: Historical moves (107 ELO)
+//             let hvalue = AI.history[move.piece][move.to]
+//             move.score += hvalue
+//             sortedMoves.push(move)
+
+//             continue
+    
+    
+//             //     sortedMoves.push(move)
+
+//             //     continue
+//             // } else {
+//             //     // if (AI.phase <= MIDGAME) {
+//             //     //     if (turn === WHITE) {
+//             //     //         move.score += AI.PSQT_OPENING[ABS[move.piece]][move.to] - AI.PSQT_OPENING[ABS[move.piece]][move.from]
+//             //     //     } else {
+//             //     //         move.score += AI.PSQT_OPENING[ABS[move.piece]][112^move.to] - AI.PSQT_OPENING[ABS[move.piece]][112^move.from]
+//             //     //     }
+//             //     // } else {
+//             //     //     if (turn === WHITE) {
+//             //     //         move.score += AI.PSQT_LATE_ENDGAME[ABS[move.piece]][move.to] - AI.PSQT_LATE_ENDGAME[ABS[move.piece]][move.from]
+//             //     //     } else {
+//             //     //         move.score += AI.PSQT_LATE_ENDGAME[ABS[move.piece]][112^move.to] - AI.PSQT_LATE_ENDGAME[ABS[move.piece]][112^move.from]
+//             //     //     }
+//             //     // }
+
+//             //     unsortedMoves.push(move)
+                
+//             //     continue
+//             // }
+//         }
+//     }
+
+//     // ORDENA LOS MOVIMIENTOS
+//     // El tiempo de esta función toma hasta un 10% del total de cada búsqueda.
+//     // Sería conveniente utilizar un mejor método de ordenamiento.
+//     if (sortedMoves.length > 1) {
+//         sortedMoves.sort((a, b) => {
+//             return b.score - a.score
+//         })
+//     }
+
+//     if (ttMove) {
+//         moves = [ttMove]
+//     } else {
+//         moves = []
+//     }
+    
+//     moves = moves.concat(sortedMoves)
+
+//     // let t1 = (new Date()).getTime()
+
+//     // AI.sortingTime += (t1 - t0)
+
+//     return moves
+// }
+
+// AI.sortMoves = function (board, moves, turn, ply, depth, ttEntry) {
+//     // usar copia del ply si necesario
+//     if (ply > AI.totaldepth) ply = AI.totaldepth;
+
+//     let killer1 = AI.killers ? AI.killers[turn][ply][0] : null;
+//     let killer2 = AI.killers ? AI.killers[turn][ply][1] : null;
+//     let ttMove = null;
+
+//     const sortedMoves = [];
+//     const unsortedMoves = [];
+
+//     // clamp helper
+//     const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
+
+//     for (let i = 0; i < moves.length; i++) {
+//         const move = moves[i];
+//         move.score = 0;
+
+//         // ttMove detection (no push yet)
+//         if (ttEntry && ttEntry.move && move.key === ttEntry.move.key) {
+//             move.tt = true;
+//             ttMove = move;
+//             continue;
+//         }
+
+//         if (move.isCapture) {
+//             // base: MVV-LVA (alto) + pequeño bonus por SEE
+//             const mvvlva = AI.MVVLVASCORES ? AI.MVVLVASCORES[move.piece][move.capturedPiece] : 0;
+//             const see = AI.simpleSEE ? AI.simpleSEE(board, move) : 0;
+//             // si see >= 0 -> small positive bonus; si < 0 -> small penalty
+//             const seeAdj = (see >= 0) ? 5000 : -1500; // ajusta según pruebas
+//             move.score = 200000000 + mvvlva + seeAdj;
+//             sortedMoves.push(move);
+//             continue;
+//         }
+
+//         // killers
+//         if (killer1 && killer1.key === move.key) {
+//             move.killer1 = true;
+//             move.score = 6000000;
+//             sortedMoves.push(move);
+//             continue;
+//         }
+//         if (killer2 && killer2.key === move.key) {
+//             move.killer2 = true;
+//             move.score = 5000000;
+//             sortedMoves.push(move);
+//             continue;
+//         }
+
+//         // promotion
+//         if (move.promotingPiece) {
+//             move.score = 100000000;
+//             sortedMoves.push(move);
+//             continue;
+//         }
+
+//         // history: usar depth (profundidad restante), no ply
+//         // asegúrate que AI.history[depth] exista; si no, fallback a ply
+//         const histIndex = (AI.history[depth]) ? depth : Math.min(ply, AI.totaldepth);
+//         let hvalue = 0;
+//         if (AI.history[histIndex] && AI.history[histIndex][move.piece]) {
+//             hvalue = AI.history[histIndex][move.piece][move.to] | 0;
+//         }
+//         // clamp history para evitar saturación
+//         hvalue = clamp(hvalue, -2000000, 2000000);
+//         move.score = move.score + hvalue;
+
+//         // Decide si lo ponemos en sorted (history positivo) o en unsorted (put at end)
+//         if (hvalue !== 0) sortedMoves.push(move); else unsortedMoves.push(move);
+//     }
+
+//     // Ordenar por score descendente
+//     if (sortedMoves.length > 1) sortedMoves.sort((a, b) => b.score - a.score);
+
+//     // Reconstruir lista: ttMove primero si existe, luego sorted, luego unsorted
+//     const out = [];
+//     if (ttMove) out.push(ttMove);
+//     for (let m of sortedMoves) out.push(m);
+//     for (let m of unsortedMoves) out.push(m);
+
+//     return out;
+// }
+
+AI.sortMoves = (board, moves, turn, ply, depth, ttEntry)=> {
+
+    let ttMove = null
+    let goodCaps = []
+    let badCaps = []
+    let killers = []
+    let quiets = []
+
+    for (const move of moves) {
         move.score = 0
 
-        let ttEntryMove = false
-
-        // CRITERION 1: The move is on the Transposition Table (389 ELO)
+        // TT MOVE
         if (ttEntry && move.key === ttEntry.move.key) {
-            move.tt = true
             ttMove = move
             continue
         }
-        
+
+        // CAPTURES
         if (move.isCapture) {
-            // move.mvvlva = AI.MVVLVASCORES[move.piece][move.capturedPiece]
-
-            // move.score += 2e8 + move.mvvlva
-            move.score += AI.simpleSEE(board, move)
-
-            sortedMoves.push(move)
-
+            const see = AI.simpleSEE(board, move)
+            if (see >= 0) {
+                move.score = 1e8 + see
+                goodCaps.push(move)
+            } else {
+                move.score = -1e6 + see
+                badCaps.push(move)
+            }
             continue
-        } else {
-            // CRITERIO: First killer move
-            if (killer1 && killer1.key === move.key) {
-                move.killer1 = true
-                move.score += 6e6
-
-                sortedMoves.push(move)
-
-                continue
-            }
-
-            // CRITERIO: Second killer move
-            if (killer2 && killer2.key === move.key) {
-                move.killer2 = true
-                move.score += 5e6
-
-                sortedMoves.push(move)
-
-                continue
-            }
-            
-            // CRITERIO: Promotion
-            if (move.promotingPiece) {
-                move.score += 1e8
-
-                sortedMoves.push(move)
-
-                continue
-            }
-
-            // // CRITERIO: Castle (-18 ELO?)
-            // if (move.castleSide) {
-
-            //     if (AI.phase === OPENING) {
-            //         move.score = 3e8 // igual que capturas sin mlvv
-                
-            //         sortedMoves.push(move)
-                    
-            //         continue
-            //     }
-                    
-            //     if (AI.phase === MIDGAME) {
-            //             move.score = 1e7
-                        
-            //             sortedMoves.push(move)
-                        
-            //             continue
-            //     }
-
-            // }
-
-            // The move is in the previous Principal Variation (107 ELO)
-            // if (AI.PV[ply] && AI.PV[ply].key === move.key) {
-            //     move.pv = true
-            //     move.score += 1e6
-            //     sortedMoves.push(move)
-            //     continue
-            // }
-            
-            // CRITERIO 6: Historical moves (107 ELO)
-            let hvalue = AI.history[move.piece][move.to]
-            move.score += hvalue
-            sortedMoves.push(move)
-
-            continue
-    
-    
-            //     sortedMoves.push(move)
-
-            //     continue
-            // } else {
-            //     // if (AI.phase <= MIDGAME) {
-            //     //     if (turn === WHITE) {
-            //     //         move.score += AI.PSQT_OPENING[ABS[move.piece]][move.to] - AI.PSQT_OPENING[ABS[move.piece]][move.from]
-            //     //     } else {
-            //     //         move.score += AI.PSQT_OPENING[ABS[move.piece]][112^move.to] - AI.PSQT_OPENING[ABS[move.piece]][112^move.from]
-            //     //     }
-            //     // } else {
-            //     //     if (turn === WHITE) {
-            //     //         move.score += AI.PSQT_LATE_ENDGAME[ABS[move.piece]][move.to] - AI.PSQT_LATE_ENDGAME[ABS[move.piece]][move.from]
-            //     //     } else {
-            //     //         move.score += AI.PSQT_LATE_ENDGAME[ABS[move.piece]][112^move.to] - AI.PSQT_LATE_ENDGAME[ABS[move.piece]][112^move.from]
-            //     //     }
-            //     // }
-
-            //     unsortedMoves.push(move)
-                
-            //     continue
-            // }
         }
+
+        // KILLERS
+        if (AI.killers[turn][ply][0]?.key === move.key ||
+            AI.killers[turn][ply][1]?.key === move.key) {
+            move.score = 9e7
+            move.killer = true
+            killers.push(move)
+            continue
+        }
+
+        // QUIET BY HISTORY
+        move.score = AI.history[move.piece][move.to]
+        quiets.push(move)
     }
 
-    // ORDENA LOS MOVIMIENTOS
-    // El tiempo de esta función toma hasta un 10% del total de cada búsqueda.
-    // Sería conveniente utilizar un mejor método de ordenamiento.
-    if (sortedMoves.length > 1) {
-        sortedMoves.sort((a, b) => {
-            return b.score - a.score
-        })
-    }
+    // SORT CAPTURES + QUIETS
+    goodCaps.sort((a,b) => b.score - a.score)
+    killers.sort((a,b) => b.score - a.score)
+    quiets.sort((a,b) => b.score - a.score)
+    badCaps.sort((a,b) => b.score - a.score)
 
-    if (ttMove) {
-        moves = [ttMove]
-    } else {
-        moves = []
-    }
-    
-    moves = moves.concat(sortedMoves)
+    let out = []
+    if (ttMove) out.push(ttMove)
 
-    // let t1 = (new Date()).getTime()
-
-    // AI.sortingTime += (t1 - t0)
-
-    return moves
+    out = out.concat(goodCaps, killers, quiets, badCaps)
+    return out
 }
+
 
 AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalMovesSoFar, lookForMateTurn, allowNullMove) {
     
@@ -3247,25 +3427,27 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
         if (!move.isCapture) nonCaptures++
 
-        // Late moves pruning, inspired in Stockfish - (96 ELO / 20)
-        if (prune && depth >=3 && nonCaptures > maxMoves && staticeval + pruneLimit <= alpha) {
-            AI.maxMovesCount++
-            return alpha
-        }
-
-        // Futility pruning
-        if (prune &&
-            !move.isCapture &&
-            !move.isPromotion &&
-            depth <= 3 ) {
-        
-            // let margin = MARGIN1 * depth * depth;  // escala rápida y segura
-            let margin = MARGIN1 * depth * depth;  // escala rápida y segura
-        
-            if (staticeval + margin <= alpha) {
-                continue
+        if (!move.tt && !move.isCapture && !move.killer) {
+            // Late moves pruning, inspired in Stockfish - (96 ELO / 20)
+            if (prune && depth >=3 && nonCaptures > maxMoves && staticeval + pruneLimit <= alpha) {
+                AI.maxMovesCount++
+                return alpha
+            }
+    
+            // Futility pruning
+            if (prune &&
+                !move.isPromotion &&
+                depth <= 3 ) {
+            
+                // let margin = MARGIN1 * depth * depth;  // escala rápida y segura
+                let margin = MARGIN1 * depth * depth;  // escala rápida y segura
+            
+                if (staticeval + margin <= alpha) {
+                    continue
+                }
             }
         }
+
         
 
         //Reducciones
@@ -3300,9 +3482,9 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
             let inCheckAfterMove = board.isKingInCheck()
 
-            let dangerous = move.mvvlva < 5000 || incheck || inCheckAfterMove// || ABS[move.piece] === K
+            let dangerous = move.mvvlva < 5000 || inCheckAfterMove// || ABS[move.piece] === K
             
-            if (!incheck && !inCheckAfterMove) {
+            if (!move.isCapture && !move.killer && !inCheckAfterMove && AI.history[move.piece][move.to] < 20) {
                 R += AI.LMR_TABLE[depth][legal] | 0 // (240 ELO)
                 
                 //History reductions (70 ELO)
@@ -3321,7 +3503,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
-                    // if (score > alpha + MARGIN3 && depth < 3 && ply < 6) {
+                    // if (score > alpha + MARGIN1 && depth < 3) {
                     //     E = 1
                     //     AI.uctnodes++
                     // }
@@ -3654,6 +3836,11 @@ AI.search = function (board, options) {
 
         AI.killers[WHITE] = (new Array(AI.totaldepth + 1)).fill([null, null])
         AI.killers[BLACK] = (new Array(AI.totaldepth + 1)).fill([null, null])
+
+        for (let i = 0; i < AI.totaldepth; i++) {
+            AI.killers[WHITE][i] = [null, null]
+            AI.killers[BLACK][i] = [null, null]
+        }
 
         AI.fh = AI.fhf = 0.001
         
