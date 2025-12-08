@@ -1630,7 +1630,7 @@ AI.createTables = function (board, tt, ev, hh, pp) {
         AI.collisions = 0
         AI.ttGets = 0
 
-        AI.hashTable = [null, new Array(this.htlength).fill(null), new Array(this.htlength).fill(null)]
+        AI.hashTable = new Array(this.htlength).fill(null)
     }
 
     if (ev) {
@@ -3174,14 +3174,14 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
 
     let index = hashkey % AI.htlength
 
-    let ttEntry = AI.hashTable[turn][index]
+    let ttEntry = AI.hashTable[index]
 
     if ((ttEntry && ttEntry.hashkey === hashkey)) {
 
         let visits = ttEntry.visits++
 
         if (depth >= ttEntry.depth) {
-            AI.hashTable[turn][index] = {
+            AI.hashTable[index] = {
                 hashkey,
                 score,
                 flag,
@@ -3191,13 +3191,13 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
             }
 
         } else {
-            AI.hashTable[turn][index].visits++
+            AI.hashTable[index].visits++
         }
         
         return
     }
 
-    AI.hashTable[turn][index] = {
+    AI.hashTable[index] = {
         hashkey,
         score,
         flag,
@@ -3211,7 +3211,7 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
 
 AI.ttGet = function (turn, hashkey) {
     AI.ttGets++
-    let ttEntry = AI.hashTable[turn][hashkey % AI.htlength]
+    let ttEntry = AI.hashTable[hashkey % AI.htlength]
     
     if (ttEntry) {
         if (ttEntry.hashkey === hashkey) {
@@ -3219,7 +3219,7 @@ AI.ttGet = function (turn, hashkey) {
             return ttEntry
         } else {
             AI.collisions++
-            // AI.hashTable[turn][hashkey % AI.htlength] = null
+            // AI.hashTable[hashkey % AI.htlength] = null
             return null
         }
     } else {
@@ -3886,6 +3886,7 @@ AI.search = function (board, options) {
 
                 if (mtdfScore >= beta || mtdfScore <= alpha) {
                     // re-search
+                    console.log('Re-Search')
                     mtdfScore = AI.MTDF2(board, AI.f, depth, -INFINITY, INFINITY)
                 }
 
