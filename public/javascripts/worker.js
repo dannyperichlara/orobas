@@ -1511,6 +1511,20 @@ const MINOR = AI.POV[1] / AI.nullWindowFactor | 0; // menor pieza no-pawn (cabal
   }
 })()
 
+// Inicializar array
+AI.LMP = [];
+
+// Total depth de tu motor
+for (let depth = 0; depth <= AI.totaldepth; depth++) {
+    // Fórmula agresiva: primeros movimientos que NO se podan
+    let threshold = Math.floor(10 / Math.log2(depth + 2));
+    
+    // Nunca menos de 1 movimiento
+    AI.LMP[depth] = Math.max(1, threshold);
+}
+
+console.log(AI.LMP)
+
 console.log('Max material value', AI.maxMaterialValue)
 
 const MATE = 34 * MARGIN1
@@ -3027,13 +3041,13 @@ AI.saveHistory = function (ply, move, value) {
 function probCut(board, depth, alpha, beta, ply) {
 
     // Condición mínima: profundidad suficiente
-    if (depth < 5 || depth >= 13) return null;
+    if (depth < 5) return null;
 
     // Solo probamos corte si la ventana lo permite
-    const cutoffBeta = beta + MARGIN3;
+    const cutoffBeta = beta + MARGIN2;
 
     // Hacemos una mini-búsqueda reducida (depth - 3)
-    const reducedDepth = depth - 2;
+    const reducedDepth = depth - 3;
 
     const score = AI.PVS(board, cutoffBeta - 1, cutoffBeta, reducedDepth, ply, false)
 
@@ -3131,7 +3145,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
     if (AI.stop && AI.iteration > AI.mindepth[AI.phase]) return alpha
 
-    let staticeval = AI.evaluate(board, ply, alpha, beta, pvNode, incheck) | 0
+    let staticEval = AI.evaluate(board, ply, alpha, beta, pvNode, incheck) | 0
     let pruneLimit = FUTILITYMARGIN[depth]
     
     if (prune) {
@@ -3141,9 +3155,17 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
         if (pc !== null) {
             return pc;
         }
+
+        // HARD RAZORING
+        if (depth <= 2) {
+            if (staticEval + FUTILITYMARGIN[depth] < alpha) {
+                // La posición es demasiado mala, podar sin buscar
+                return staticEval;
+            }
+        }
         
         // RAZORING (Strelka) (0 ELO)
-        // let razoringMargin = staticeval + MARGIN3;
+        // let razoringMargin = staticEval + MARGIN3;
     
         // if (razoringMargin < alpha) {
         //     if (depth == 1) {
@@ -3193,8 +3215,6 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
     let E = 0
 
-    let maxMoves = 3 + depth*depth // For moves count pruning, inspired in Stockfish - Not fully tested
-
     let nonCaptures = 0
     AI.totalMoves += moves.length
 
@@ -3205,28 +3225,24 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
         if (!move.isCapture) nonCaptures++
 
-        if (!move.tt && !move.isCapture && !move.killer) {
+        if (!move.isCapture && !move.killer) {
             // Late moves pruning, inspired in Stockfish - (96 ELO / 20)
-            if (prune && depth >=3 && nonCaptures > maxMoves && staticeval + pruneLimit <= alpha) {
+            if (prune && legal > AI.LMP[depth]) {
                 AI.maxMovesCount++
                 return alpha
             }
     
             // Futility pruning
             if (prune &&
-                !move.isPromotion &&
-                depth <= 3 ) {
+                !move.isPromotion) {
             
-                // let margin = MARGIN1 * depth * depth;  // escala rápida y segura
-                let margin = MARGIN1 * depth * depth;  // escala rápida y segura
+                let margin = FUTILITYMARGIN[depth];
             
-                if (staticeval + margin <= alpha) {
+                if (staticEval + margin <= alpha) {
                     continue
                 }
             }
         }
-
-        
 
         //Reducciones
         let R = 0
@@ -3281,11 +3297,6 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
-                    if (score > alpha + MARGIN1 && depth < 3) {
-                        E = 1
-                        AI.uctnodes++
-                    }
-
                     R = 0
                     score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
                 }
@@ -3631,11 +3642,11 @@ AI.search = function (board, options) {
 
         AI.effectiveEvaluations = 0
 
-        AI.staticeval = AI.evaluate(board, 1, alpha, beta, true, board.isKingInCheck(), 0)
+        AI.staticEval = AI.evaluate(board, 1, alpha, beta, true, board.isKingInCheck(), 0)
 
-        if (AI.staticeval > SMALLMARGIN) {
+        if (AI.staticEval > SMALLMARGIN) {
             AI.WINNING = WHITE
-        } else if (AI.staticeval < -SMALLMARGIN) {
+        } else if (AI.staticEval < -SMALLMARGIN) {
             AI.WINNING = BLACK
         } else {
             AI.WINNING = 0
