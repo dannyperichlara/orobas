@@ -1859,19 +1859,19 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
             return sign * nullWindowScore
         }
     
-        if (score + VPAWNx2 <= alpha) {
-            AI.evalTable[board.hashkey % this.htlength] = {
-                hashkey: board.hashkey,
-                score: score + VPAWNx2,
-                pvNode
-            }
+        // if (score + VPAWNx2 <= alpha) {
+        //     AI.evalTable[board.hashkey % this.htlength] = {
+        //         hashkey: board.hashkey,
+        //         score: score + VPAWNx2,
+        //         pvNode
+        //     }
             
-            let nullWindowScore = score / AI.nullWindowFactor | 0
+        //     let nullWindowScore = score / AI.nullWindowFactor | 0
     
-            AI.lazynodes++
+        //     AI.lazynodes++
     
-            return sign * nullWindowScore
-        }
+        //     return sign * nullWindowScore
+        // }
 
         // Evaluación posicional
         let positional = 0
@@ -2826,6 +2826,8 @@ AI.see = function (board, move) {
 //     return out;
 // }
 
+let ert = 0
+
 AI.sortMoves = (board, moves, turn, ply, depth, ttEntry)=> {
 
     let ttMove = null
@@ -2912,7 +2914,8 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
 
     let cutNode = !pvNode
 
-    standpat = AI.evaluate(board, ply, alpha, beta, pvNode, incheck, illegalMovesSoFar) | 0
+    standpat = AI.evaluate(board, ply, alpha, beta, false, incheck, illegalMovesSoFar) | 0
+    // El standpat pvNode debe estar en falso, sino genera ruido en el FHF
     
     if (!incheck) {
         if (standpat >= beta) {
@@ -3139,14 +3142,13 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
         moves = AI.sortMoves(board, moves, turn, ply, depth, ttEntry)
     }
 
-    let prune = cutNode && !incheck && beta > (-MATE + AI.totaldepth) && alpha < (MATE - AI.totaldepth) && !dangerous
+    let prune = cutNode && depth < 8 && !incheck && beta > (-MATE + AI.totaldepth) && alpha < (MATE - AI.totaldepth) && !dangerous
 
     let mateE = 0 // Mate threat extension
 
     if (AI.stop && AI.iteration > AI.mindepth[AI.phase]) return alpha
 
     let staticEval = AI.evaluate(board, ply, alpha, beta, pvNode, incheck) | 0
-    let pruneLimit = FUTILITYMARGIN[depth]
     
     if (prune) {
 
@@ -3187,7 +3189,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     }
 
     // NULL MOVE PRUNING
-    // if (!incheck && depth >= 3 && AI.phase < LATE_ENDGAME) {
+    // if (cutNode && !incheck && depth >= 3 && AI.phase < LATE_ENDGAME) {
     //     const R = 2 + (depth / 4)|0; // reducción clásica
     //     board.changeTurn();
     //     const score = -AI.PVS(board, -beta, -beta + 1, depth - 1 - R, ply + 1, dangerous, true)
@@ -3225,23 +3227,20 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
         if (!move.isCapture) nonCaptures++
 
-        if (!move.isCapture && !move.killer) {
+        if (cutNode && !move.isCapture && !move.killer && !move.isPromotion) {
+            // Futility pruning
+            let margin = FUTILITYMARGIN[depth];
+        
+            if (staticEval + margin <= alpha) {
+                continue
+            }
+
             // Late moves pruning, inspired in Stockfish - (96 ELO / 20)
-            if (prune && legal > AI.LMP[depth]) {
+            if (legal > AI.LMP[depth]) {
                 AI.maxMovesCount++
                 return alpha
             }
     
-            // Futility pruning
-            if (prune &&
-                !move.isPromotion) {
-            
-                let margin = FUTILITYMARGIN[depth];
-            
-                if (staticEval + margin <= alpha) {
-                    continue
-                }
-            }
         }
 
         //Reducciones
@@ -3320,20 +3319,33 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
                     //LOWERBOUND
                     
+                    // Guardar killer move
                     if (!move.isCapture) {
-                        if (AI.killers[turn | 0][ply][0] && AI.killers[turn | 0][ply][0].key != move.key) {
-                                AI.killers[turn | 0][ply][1] = AI.killers[turn | 0][ply][0]
+
+                        const killers = AI.killers[turn | 0][ply];
+
+                        // evitar duplicados
+                        if (!killers[0] || killers[0].key !== move.key) {
+
+                            // desplazar killer 0 → killer 1
+                            if (killers[0]) {
+                                // copiar el objeto, no la referencia
+                                killers[1] = { ...killers[0] };
+                            }
+
+                            // asignar killer 0 (clonado)
+                            killers[0] = { ...move };
                         }
-                        
-                        AI.killers[turn | 0][ply][0] = move
-                        
-                        AI.saveHistory(ply, move, (i + 1)*depth*depth)
+
+                        // historial (ok)
+                        AI.saveHistory(ply, move, (i + 1) * depth * depth);
                     }
                     
                     AI.ttSave(turn, hashkey, score, LOWERBOUND, depth + E, move)
                     
                     return beta
                 }
+
                 AI.ttSave(turn, hashkey, score, EXACT, depth, move)
                 
                 bestscore = score
