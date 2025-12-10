@@ -1493,37 +1493,25 @@ const MARGIN10 = VPAWN*10/AI.nullWindowFactor | 0
 const SMALLMARGIN = (VPAWN/2)/AI.nullWindowFactor | 0
 const VERYSMALLMARGIN = (VPAWN/3)/AI.nullWindowFactor | 0
 
-let FUTILITYMARGIN = []
+
 
 // piece values (tu entrada)
 const MINOR = AI.POV[1] / AI.nullWindowFactor | 0; // menor pieza no-pawn (caballo) AJUSTADA
 
-// perfiles:
-// conservador: base 150, scale 60
-// equilibrado: base PAWN (126), scale 76
-// agresivo: base 100, scale 90
+let FUTILITYMARGIN = []
 
-(function futilityMargins(n, { base = MARGIN1*1.5, scale = 0.6 * MARGIN1, cap = 0.8 * MINOR | 0 } = {}) {
-  for (let d = 0; d <= AI.totaldepth; d++) {
-    let m = base + scale * d | 0;
-    if (cap !== null && m > cap) m = cap;
-    FUTILITYMARGIN.push(m);
+for (let depth = 0; depth <= AI.totaldepth; depth++) {
+    FUTILITYMARGIN[depth] = depth * VPAWN;
   }
-})()
 
 // Inicializar array
 AI.LMP = [];
 
 // Total depth de tu motor
 for (let depth = 0; depth <= AI.totaldepth; depth++) {
-    // Fórmula agresiva: primeros movimientos que NO se podan
-    let threshold = Math.floor(10 / Math.log2(depth + 2));
-    
     // Nunca menos de 1 movimiento
-    AI.LMP[depth] = Math.max(1, threshold);
+    AI.LMP[depth] = 2 + depth * depth;
 }
-
-console.log(AI.LMP)
 
 console.log('Max material value', AI.maxMaterialValue)
 
@@ -1844,35 +1832,35 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
 
     // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
 
-    if (pvNode) {
-        if (score - VPAWN >= beta) {
-            let nullWindowScore = beta / AI.nullWindowFactor | 0
+    // if (pvNode) {
+    //     if (score - VPAWN >= beta) {
+    //         let nullWindowScore = beta / AI.nullWindowFactor | 0
     
-            AI.lazynodes++
+    //         AI.lazynodes++
     
-            return sign * nullWindowScore
-        }
+    //         return sign * nullWindowScore
+    //     }
     
-        if (score + VPAWN <= alpha) {
-            let nullWindowScore = alpha / AI.nullWindowFactor | 0
+    //     if (score + VPAWN <= alpha) {
+    //         let nullWindowScore = alpha / AI.nullWindowFactor | 0
     
-            AI.lazynodes++
+    //         AI.lazynodes++
     
-            return sign * nullWindowScore
-        }
+    //         return sign * nullWindowScore
+    //     }
 
-        // Evaluación posicional
-        let positional = 0
+    //     // Evaluación posicional
+    //     let positional = 0
     
-        positional += smoothClamp(AI.getPositional(board, pieces), VPAWNx2)
-        positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWNx2)
-        positional += smoothClamp(AI.getMobility(board).score, VPAWNx2)
-        // positional += smoothClamp(AI.getDefendedPieces(board, pieces))
+    //     // positional += smoothClamp(AI.getPositional(board, pieces), VPAWNx2)
+    //     // positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWNx2)
+    //     // positional += smoothClamp(AI.getMobility(board).score, VPAWNx2)
+    //     // positional += smoothClamp(AI.getDefendedPieces(board, pieces))
     
-        let clamp = positional / 3 | 0
+    //     let clamp = positional / 3 | 0
     
-        score += clamp | 0
-    }
+    //     score += clamp | 0
+    // }
     
     // Saves the score in the evaluation table before the tempo bonus
     AI.evalTable[board.hashkey % this.htlength] = {
@@ -3029,28 +3017,35 @@ AI.saveHistory = function (ply, move, value) {
   
 }
 
-function probCut(board, depth, alpha, beta, ply) {
+function probCut(board, depth, alpha, beta, ply, pvNode) {
 
-    // Condición mínima: profundidad suficiente
-    if (depth < 5) return null;
+    // Profundidad mínima realista para ProbCut
+    if (depth <= 4) return null;
 
-    // Solo probamos corte si la ventana lo permite
-    const cutoffBeta = beta + MARGIN2;
+    // No activar cerca de mates falsos
+    if (alpha < -MATE + AI.totaldepth || beta > MATE - AI.totaldepth) return null;
 
-    // Hacemos una mini-búsqueda reducida (depth - 3)
+    // Evitar probcut justo después de PV nodes
+    if (ply < 2) return null;
+
+    // Margen dinámico: más profundidad → mayor margen
+    const margin = MARGIN1 + depth * VERYSMALLMARGIN;
+    const cutoffBeta = beta + margin;
+
     const reducedDepth = depth - 3;
 
-    const score = AI.PVS(board, cutoffBeta - 1, cutoffBeta, reducedDepth, ply, false)
+    // Mini-búsqueda con ventana estrecha
+    const score = AI.PVS(board, cutoffBeta - 1, cutoffBeta, reducedDepth, ply, false, pvNode);
 
-    // Si pasó el umbral, cortamos igual que en Multi-ProbCut
+    // Corte solo si sobrepasa claramente el umbral
     if (score >= cutoffBeta) {
+        AI.probcuts++;
         return score;
     }
 
-    AI.probcuts++
-
-    return null; // seguir búsqueda normal
+    return null;
 }
+
 
 // PRINCIPAL VARIATION SEARCH
 // El método PVS es Negamax + Ventana-Nula
@@ -3141,39 +3136,39 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     if (prune) {
 
         // PROBCUT
-        const pc = probCut(board, depth, alpha, beta, ply);
+        const pc = probCut(board, depth, alpha, beta, ply, pvNode);
         if (pc !== null) {
             return pc;
         }
-
-        // // HARD RAZORING
-        // if (depth <= 2) {
-        //     if (staticEval + FUTILITYMARGIN[depth] < alpha) {
-        //         // La posición es demasiado mala, podar sin buscar
-        //         return staticEval;
+        
+        // // RAZORING (Strelka) (0 ELO)
+        // let razoringMargin = staticEval + VPAWN*1.25;
+    
+        // if (razoringMargin < alpha) {
+        //     if (depth == 1) {
+        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+        //         // console.log('r1')
+        //         return Math.max(new_razoringMargin, razoringMargin);
+        //     }
+    
+        //     razoringMargin += VPAWN*1.75
+    
+        //     if (razoringMargin < beta && depth <= 3) {
+        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+            
+        //         if (new_razoringMargin < beta) {
+        //             return Math.max(new_razoringMargin, razoringMargin);
+        //         }
         //     }
         // }
-        
-        // RAZORING (Strelka) (0 ELO)
-        let razoringMargin = staticEval + VPAWN*1.25;
-    
-        if (razoringMargin < alpha) {
-            if (depth == 1) {
-                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-                // console.log('r1')
-                return Math.max(new_razoringMargin, razoringMargin);
-            }
-    
-            razoringMargin += VPAWN*1.75
-    
-            if (razoringMargin < beta && depth <= 3) {
-                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-            
-                if (new_razoringMargin < beta) {
-                    return Math.max(new_razoringMargin, razoringMargin);
+
+                // HARD RAZORING
+                if (depth <= 2) {
+                    if (staticEval + FUTILITYMARGIN[depth] < alpha) {
+                        // La posición es demasiado mala, podar sin buscar
+                        return staticEval;
+                    }
                 }
-            }
-        }
 
     }
 
