@@ -3146,33 +3146,34 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
             return pc;
         }
 
-        // HARD RAZORING
-        if (depth <= 2) {
-            if (staticEval + FUTILITYMARGIN[depth] < alpha) {
-                // La posición es demasiado mala, podar sin buscar
-                return staticEval;
-            }
-        }
-        
-        // RAZORING (Strelka) (0 ELO)
-        // let razoringMargin = staticEval + MARGIN3;
-    
-        // if (razoringMargin < alpha) {
-        //     if (depth == 1) {
-        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-        //         return Math.max(new_razoringMargin, razoringMargin);
-        //     }
-    
-        //     razoringMargin += MARGIN2*depth
-    
-        //     if (razoringMargin < beta && depth <= 3) {
-        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-            
-        //         if (new_razoringMargin < beta) {
-        //             return Math.max(new_razoringMargin, razoringMargin);
-        //         }
+        // // HARD RAZORING
+        // if (depth <= 2) {
+        //     if (staticEval + FUTILITYMARGIN[depth] < alpha) {
+        //         // La posición es demasiado mala, podar sin buscar
+        //         return staticEval;
         //     }
         // }
+        
+        // RAZORING (Strelka) (0 ELO)
+        let razoringMargin = staticEval + VPAWN*1.25;
+    
+        if (razoringMargin < alpha) {
+            if (depth == 1) {
+                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+                // console.log('r1')
+                return Math.max(new_razoringMargin, razoringMargin);
+            }
+    
+            razoringMargin += VPAWN*1.75
+    
+            if (razoringMargin < beta && depth <= 3) {
+                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+            
+                if (new_razoringMargin < beta) {
+                    return Math.max(new_razoringMargin, razoringMargin);
+                }
+            }
+        }
 
     }
 
@@ -3284,6 +3285,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
+                    R = 0
                     score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
                 }
             }
@@ -3685,18 +3687,10 @@ AI.search = function (board, options) {
 
                 let mtdfScore = AI.MTDF2(board, AI.f, depth, alpha, beta) // +239 ELO
 
-                let research = false
-
-                if (mtdfScore >= beta) {
+                if (!AI.stop && (mtdfScore >= beta || mtdfScore <= alpha)) {
                     // re-search
-                    console.log('Re-Search Beta')
-                    mtdfScore = AI.MTDF2(board, mtdfScore, depth, alpha, INFINITY)
-                }
-
-                if (mtdfScore <= alpha) {
-                    // re-search
-                    console.log('Re-Search Apha')
-                    mtdfScore = AI.MTDF2(board, mtdfScore, depth, -INFINITY, beta)
+                    console.log('Re-Search')
+                    mtdfScore = AI.MTDF2(board, mtdfScore, depth, -INFINITY, INFINITY)
                 }
 
                 if (!AI.stop) AI.f = mtdfScore
