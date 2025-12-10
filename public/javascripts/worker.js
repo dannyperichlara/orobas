@@ -2085,22 +2085,22 @@ AI.getPawnShield = (board)=>{
     // Enroque de rey blanco
     if (board.whiteKingIndex === 118 || board.whiteKingIndex === 119) {
         if (board.board[101] !== P && board.board[85] !== P && board.board[69] !== P) {
-            score -= VPAWN2
+            score -= VPAWN3
         }
 
         if (board.board[86] !== P && board.board[102] !== P) {
-            score -= VPAWN2
+            score -= VPAWN3
         }
     }
 
     // Enroque de dama blanco
     if (board.whiteKingIndex === 114 || board.whiteKingIndex === 113) {
         if (board.board[66] !== P && board.board[82] !== P && board.board[98] !== P) {
-            score -= VPAWN2
+            score -= VPAWN3
         }
 
         if (board.board[81] !== P && board.board[97] !== P) {
-            score -= VPAWN2
+            score -= VPAWN3
         }
     }
 
@@ -2108,22 +2108,22 @@ AI.getPawnShield = (board)=>{
     // Enroque de rey negro
     if (board.blackKingIndex === 6 || board.blackKingIndex === 7) {
         if (board.board[21] !== p && board.board[37] !== p && board.board[53] !== p) {
-            score += VPAWN2
+            score += VPAWN3
         }
 
         if (board.board[22] !== p && board.board[38] !== p) {
-            score += VPAWN2
+            score += VPAWN3
         }
     }
 
     // Enroque de dama negro
     if (board.blackKingIndex === 1 || board.blackKingIndex === 2) {
         if (board.board[18] !== p && board.board[34] !== p && board.board[50] !== p) {
-            score += VPAWN2
+            score += VPAWN3
         }
 
         if (board.board[17] !== p && board.board[33] !== p) {
-            score += VPAWN2
+            score += VPAWN3
         }
     }
     
@@ -3028,10 +3028,10 @@ function probCut(board, depth, alpha, beta, ply, pvNode) {
     if (ply < 2) return null;
 
     // Margen dinámico: más profundidad → mayor margen
-    const margin = MARGIN1 + depth * VERYSMALLMARGIN;
+    const margin = MARGIN1 + depth * MARGIN1 / 10;
     const cutoffBeta = beta + margin;
 
-    const reducedDepth = depth - 3;
+    const reducedDepth = depth - (AI.phase <= MIDGAME) ? 4 : 3;
 
     // Mini-búsqueda con ventana estrecha
     const score = AI.PVS(board, cutoffBeta - 1, cutoffBeta, reducedDepth, ply, false, pvNode);
