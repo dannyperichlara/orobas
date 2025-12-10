@@ -1827,40 +1827,39 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
     score += AI.getStructure(board, pieces[P], pieces[p])
     score += AI.getPawnShield(board)
 
-        
     // let winning = Math.abs(score) > VPAWNx3
 
     // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
 
-    // if (pvNode) {
-    //     if (score - VPAWN >= beta) {
-    //         let nullWindowScore = beta / AI.nullWindowFactor | 0
+    if (pvNode) {
+        if (score - VPAWN >= beta) {
+            let nullWindowScore = beta / AI.nullWindowFactor | 0
     
-    //         AI.lazynodes++
+            AI.lazynodes++
     
-    //         return sign * nullWindowScore
-    //     }
+            return sign * nullWindowScore
+        }
     
-    //     if (score + VPAWN <= alpha) {
-    //         let nullWindowScore = alpha / AI.nullWindowFactor | 0
+        if (score + VPAWN <= alpha) {
+            let nullWindowScore = alpha / AI.nullWindowFactor | 0
     
-    //         AI.lazynodes++
+            AI.lazynodes++
     
-    //         return sign * nullWindowScore
-    //     }
+            return sign * nullWindowScore
+        }
 
-    //     // Evaluación posicional
-    //     let positional = 0
+        // Evaluación posicional
+        let positional = 0
     
-    //     // positional += smoothClamp(AI.getPositional(board, pieces), VPAWNx2)
-    //     // positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWNx2)
-    //     // positional += smoothClamp(AI.getMobility(board).score, VPAWNx2)
-    //     // positional += smoothClamp(AI.getDefendedPieces(board, pieces))
+        positional += smoothClamp(AI.getPositional(board, pieces), VPAWN)
+        positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWN)
+        positional += smoothClamp(AI.getMobility(board).score, VPAWN)
+        positional += smoothClamp(AI.getDefendedPieces(board, pieces), VPAWN)
     
-    //     let clamp = positional / 3 | 0
+        let clamp = positional / 4 | 0
     
-    //     score += clamp | 0
-    // }
+        score += clamp | 0
+    }
     
     // Saves the score in the evaluation table before the tempo bonus
     AI.evalTable[board.hashkey % this.htlength] = {
