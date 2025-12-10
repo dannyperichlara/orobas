@@ -1492,6 +1492,7 @@ const MARGIN5 = VPAWN*5/AI.nullWindowFactor | 0
 const MARGIN10 = VPAWN*10/AI.nullWindowFactor | 0
 const SMALLMARGIN = (VPAWN/2)/AI.nullWindowFactor | 0
 const VERYSMALLMARGIN = (VPAWN/3)/AI.nullWindowFactor | 0
+const TINYMARGIN = (VPAWN/10)/AI.nullWindowFactor | 0
 
 
 
@@ -3028,7 +3029,7 @@ function probCut(board, depth, alpha, beta, ply, pvNode) {
     if (ply < 2) return null;
 
     // Margen dinámico: más profundidad → mayor margen
-    const margin = MARGIN1 + depth * MARGIN1 / 10;
+    const margin = MARGIN1 + depth * TINYMARGIN;
     const cutoffBeta = beta + margin;
 
     const reducedDepth = depth - (AI.phase <= MIDGAME) ? 4 : 3;
