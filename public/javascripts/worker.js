@@ -3284,7 +3284,6 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 score = -AI.PVS(board, -alpha - 1, -alpha, depth + E - R - 1, ply + 1, dangerous, false)
 
                 if (score > alpha) {
-                    R = 0
                     score = -AI.PVS(board, -beta, -alpha, depth + E - 1, ply + 1, dangerous, true)
                 }
             }
@@ -3686,10 +3685,18 @@ AI.search = function (board, options) {
 
                 let mtdfScore = AI.MTDF2(board, AI.f, depth, alpha, beta) // +239 ELO
 
-                if (mtdfScore >= beta || mtdfScore <= alpha) {
+                let research = false
+
+                if (mtdfScore >= beta) {
                     // re-search
-                    console.log('Re-Search')
-                    mtdfScore = AI.MTDF2(board, AI.f, depth, -INFINITY, INFINITY)
+                    console.log('Re-Search Beta')
+                    mtdfScore = AI.MTDF2(board, mtdfScore, depth, alpha, INFINITY)
+                }
+
+                if (mtdfScore <= alpha) {
+                    // re-search
+                    console.log('Re-Search Apha')
+                    mtdfScore = AI.MTDF2(board, mtdfScore, depth, -INFINITY, beta)
                 }
 
                 if (!AI.stop) AI.f = mtdfScore
