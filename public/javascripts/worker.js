@@ -1826,7 +1826,7 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
 
         let mopup = 80*(kingToTheCorner + distanceBetweenKings)
 
-        if (turn === WHITE) {
+        if (turn === WHITE) { 
             score += mopup
         } else {
             score -= mopup
@@ -1845,33 +1845,21 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
     // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
 
     if (pvNode) {
-        if (score - VPAWNx2 >= beta) {
-            AI.evalTable[board.hashkey % this.htlength] = {
-                hashkey: board.hashkey,
-                score: score - VPAWNx2,
-                pvNode
-            }
-            
-            let nullWindowScore = score / AI.nullWindowFactor | 0
+        if (score - VPAWN >= beta) {
+            let nullWindowScore = beta / AI.nullWindowFactor | 0
     
             AI.lazynodes++
     
             return sign * nullWindowScore
         }
     
-        // if (score + VPAWNx2 <= alpha) {
-        //     AI.evalTable[board.hashkey % this.htlength] = {
-        //         hashkey: board.hashkey,
-        //         score: score + VPAWNx2,
-        //         pvNode
-        //     }
-            
-        //     let nullWindowScore = score / AI.nullWindowFactor | 0
+        if (score + VPAWN <= alpha) {
+            let nullWindowScore = alpha / AI.nullWindowFactor | 0
     
-        //     AI.lazynodes++
+            AI.lazynodes++
     
-        //     return sign * nullWindowScore
-        // }
+            return sign * nullWindowScore
+        }
 
         // Evaluación posicional
         let positional = 0
