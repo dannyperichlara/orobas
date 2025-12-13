@@ -1379,8 +1379,8 @@ AI = {
     fh: 0,
     random: 0, //40 +depth
     phase: 0,
-    htlength: 12e6,
-    pawntlength: 5e5,
+    htlength: 1500000,
+    pawntlength: 128000,
     mindepth: [6,6,6,6],
     // mindepth: [0,0,0,0],
     secondspermove: 0.2,
@@ -1852,10 +1852,10 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         // Evaluación posicional
         let positional = 0
     
-        positional += smoothClamp(AI.getPositional(board, pieces), VPAWN)
-        positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWN)
-        positional += smoothClamp(AI.getMobility(board).score, VPAWN)
-        positional += smoothClamp(AI.getDefendedPieces(board, pieces), VPAWN)
+        // positional += smoothClamp(AI.getPositional(board, pieces), VPAWN)
+        // positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWN)
+        // positional += smoothClamp(AI.getMobility(board).score, VPAWN)
+        // positional += smoothClamp(AI.getDefendedPieces(board, pieces), VPAWN)
     
         let clamp = positional / 4 | 0
     
@@ -2219,7 +2219,7 @@ AI.getStructure = (board, pawnindexW, pawnindexB)=> {
     let passers = AI.getPassers(board, pawnindexW, pawnindexB)
     let space = AI.getSpace(board, pawnindexW, pawnindexB)
     let backward = AI.getBackwardPawns(board, pawnindexW, pawnindexB)
-    let center = AI.getCenterControl(board, pawnindexW, pawnindexB)
+    let center = 0//AI.getCenterControl(board, pawnindexW, pawnindexB)
 
     let score = passers + backward + defended + doubled + space + center
     
@@ -2871,17 +2871,17 @@ AI.quiescenceSearch = function (board, alpha, beta, depth, ply, pvNode, illegalM
 
     let ttEntry = this.ttGet(turn, hashkey)
 
-    if (ttEntry && ttEntry.depth === -1) {
-        if (ttEntry.flag === EXACT) {
-            return ttEntry.score
-        } else if (ttEntry.flag === LOWERBOUND) {
-            if (ttEntry.score > alpha) alpha = ttEntry.score
-        } else if (ttEntry.flag === UPPERBOUND) {
-            if (ttEntry.score < beta) beta = ttEntry.score
-        }
+    // if (ttEntry && ttEntry.depth === -1) {
+    //     if (ttEntry.flag === EXACT) {
+    //         return ttEntry.score
+    //     } else if (ttEntry.flag === LOWERBOUND) {
+    //         if (ttEntry.score > alpha) alpha = ttEntry.score
+    //     } else if (ttEntry.flag === UPPERBOUND) {
+    //         if (ttEntry.score < beta) beta = ttEntry.score
+    //     }
 
-        if (alpha >= beta) return ttEntry.score
-    }
+    //     if (alpha >= beta) return ttEntry.score
+    // }
 
     let legal = 0
     let standpat = alpha // Only to prevent undefined values for standpat
@@ -2958,28 +2958,28 @@ AI.ttSave = function (turn, hashkey, score, flag, depth, move) {
 
     let index = hashkey % AI.htlength
 
-    let ttEntry = AI.hashTable[index]
+    // let ttEntry = AI.hashTable[index]
 
-    if ((ttEntry && ttEntry.hashkey === hashkey)) {
+    // if ((ttEntry && ttEntry.hashkey === hashkey)) {
 
-        let visits = ttEntry.visits++
+    //     let visits = ttEntry.visits++
 
-        if (depth >= ttEntry.depth) {
-            AI.hashTable[index] = {
-                hashkey,
-                score,
-                flag,
-                depth,
-                move,
-                visits
-            }
+    //     if (depth >= ttEntry.depth) {
+    //         AI.hashTable[index] = {
+    //             hashkey,
+    //             score,
+    //             flag,
+    //             depth,
+    //             move,
+    //             visits
+    //         }
 
-        } else {
-            AI.hashTable[index].visits++
-        }
+    //     } else {
+    //         AI.hashTable[index].visits++
+    //     }
         
-        return
-    }
+    //     return
+    // }
 
     AI.hashTable[index] = {
         hashkey,
