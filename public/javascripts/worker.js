@@ -1354,7 +1354,7 @@ Math.abs = (x) => {
 }
 
 AI = {
-    version: "6.2.1",
+    version: "6.2.2",
     totaldepth: 48,
     ttNodes: 0,
     collisions: 0,
