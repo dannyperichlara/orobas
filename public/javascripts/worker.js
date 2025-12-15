@@ -1838,7 +1838,16 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
     // console.log(score)
     
     score += AI.getStructure(board, pieces[P], pieces[p])
-    score += AI.getPawnShield(board)
+
+    if (incheck) {
+        if (board.turn === WHITE) {
+            score -= VPAWN
+        } else {
+            score += VPAWN
+        }
+    } else {
+        score += AI.getPawnShield(board)
+    }
 
     // let winning = Math.abs(score) > VPAWNx3
 
@@ -1864,12 +1873,12 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         // Evaluación posicional
         let positional = 0
     
-        // positional += smoothClamp(AI.getPositional(board, pieces), VPAWN)
-        // positional += smoothClamp(AI.getUnderdevelopment(board, pieces), VPAWN)
-        positional += smoothClamp(AI.getMobility(board).score, VPAWNx2)
-        // positional += smoothClamp(AI.getDefendedPieces(board, pieces), VPAWN)
-    
-        let clamp = positional / 4 | 0
+        positional += AI.getPositional(board, pieces)
+        positional += AI.getUnderdevelopment(board, pieces)
+        positional += AI.getMobility(board).score
+        positional += AI.undefendedPieces(board, pieces)
+
+        let clamp = positional | 0
     
         score += clamp | 0
     }
@@ -1890,22 +1899,22 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
 }
 
 
-AI.getDefendedPieces = (board, pieces)=>{
+AI.undefendedPieces = (board, pieces)=>{
     let score = 0
 
-    if (pieces[N][0] && board.isSquareAttacked(pieces[N][0], WHITE)) score +=10
-    if (pieces[N][1] && board.isSquareAttacked(pieces[N][1], WHITE)) score +=10
-    if (pieces[B][0] && board.isSquareAttacked(pieces[B][0], WHITE)) score +=10
-    if (pieces[B][1] && board.isSquareAttacked(pieces[B][1], WHITE)) score +=10
-    if (pieces[R][0] && board.isSquareAttacked(pieces[R][0], WHITE)) score +=10
-    if (pieces[R][1] && board.isSquareAttacked(pieces[R][1], WHITE)) score +=10
+    if (pieces[N][0] && !board.isSquareAttacked(pieces[N][0], WHITE)) score -= VPAWN2
+    if (pieces[N][1] && !board.isSquareAttacked(pieces[N][1], WHITE)) score -= VPAWN2
+    if (pieces[B][0] && !board.isSquareAttacked(pieces[B][0], WHITE)) score -= VPAWN2
+    if (pieces[B][1] && !board.isSquareAttacked(pieces[B][1], WHITE)) score -= VPAWN2
+    if (pieces[R][0] && !board.isSquareAttacked(pieces[R][0], WHITE)) score -= VPAWN2
+    if (pieces[R][1] && !board.isSquareAttacked(pieces[R][1], WHITE)) score -= VPAWN2
 
-    if (pieces[n][0] && board.isSquareAttacked(pieces[n][0], BLACK)) score -=10
-    if (pieces[n][1] && board.isSquareAttacked(pieces[n][1], BLACK)) score -=10
-    if (pieces[b][0] && board.isSquareAttacked(pieces[b][0], BLACK)) score -=10
-    if (pieces[b][1] && board.isSquareAttacked(pieces[b][1], BLACK)) score -=10
-    if (pieces[r][0] && board.isSquareAttacked(pieces[r][0], BLACK)) score -=10
-    if (pieces[r][1] && board.isSquareAttacked(pieces[r][1], BLACK)) score -=10
+    if (pieces[n][0] && !board.isSquareAttacked(pieces[n][0], BLACK)) score += VPAWN2
+    if (pieces[n][1] && !board.isSquareAttacked(pieces[n][1], BLACK)) score += VPAWN2
+    if (pieces[b][0] && !board.isSquareAttacked(pieces[b][0], BLACK)) score += VPAWN2
+    if (pieces[b][1] && !board.isSquareAttacked(pieces[b][1], BLACK)) score += VPAWN2
+    if (pieces[r][0] && !board.isSquareAttacked(pieces[r][0], BLACK)) score += VPAWN2
+    if (pieces[r][1] && !board.isSquareAttacked(pieces[r][1], BLACK)) score += VPAWN2
 
     return score
     
@@ -1915,9 +1924,9 @@ AI.getUnderdevelopment = (board, pieces)=>{
     let score = 0
 
     //underdevelopment
-    if (board.board[113] === N || board.board[114] === B || board.board[115] === Q || board.board[117] === B || board.board[118] === N) score -= VPAWNx2
+    if (board.board[113] === N || board.board[114] === B || board.board[115] === Q || board.board[117] === B || board.board[118] === N) score -= VPAWN
 
-    if (board.board[1] === n || board.board[2] === b || board.board[3] === q || board.board[5] === b || board.board[6] === n) score += VPAWNx2
+    if (board.board[1] === n || board.board[2] === b || board.board[3] === q || board.board[5] === b || board.board[6] === n) score += VPAWN
 
     return score
 }
@@ -1934,138 +1943,149 @@ AI.getPositional = (board, pieces)=>{
 
     // Bishop pairs
     if (pieces[B][0] && pieces[B][1]) {
-        // score += VPAWN2
-
-        if (board.diagonals1[pieces[B][0]] + 1 === board.diagonals1[pieces[B][1]]) score += VPAWN10
-        if (board.diagonals1[pieces[B][0]] - 1 === board.diagonals1[pieces[B][1]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][0]] + 1 === board.diagonals2[pieces[B][1]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][0]] - 1 === board.diagonals2[pieces[B][1]]) score += VPAWN10
+        if (board.diagonals1[pieces[B][0]] + 1 !== board.diagonals1[pieces[B][1]] && 
+            board.diagonals1[pieces[B][0]] - 1 !== board.diagonals1[pieces[B][1]] &&
+            board.diagonals2[pieces[B][0]] + 1 !== board.diagonals2[pieces[B][1]] && 
+            board.diagonals2[pieces[B][0]] - 1 !== board.diagonals2[pieces[B][1]])
+            score -= VPAWN2
     }
 
     if (pieces[b][0] && pieces[b][1]) {
-        // score -= VPAWN2
-
-        if (board.diagonals1[pieces[b][0]] + 1 === board.diagonals1[pieces[b][1]]) score -= VPAWN10
-        if (board.diagonals1[pieces[b][0]] - 1 === board.diagonals1[pieces[b][1]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][0]] + 1 === board.diagonals2[pieces[b][1]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][0]] - 1 === board.diagonals2[pieces[b][1]]) score -= VPAWN10
+        if (board.diagonals1[pieces[b][0]] + 1 !== board.diagonals1[pieces[b][1]] &&
+            board.diagonals1[pieces[b][0]] - 1 !== board.diagonals1[pieces[b][1]] &&
+            board.diagonals2[pieces[b][0]] + 1 !== board.diagonals2[pieces[b][1]] &&
+            board.diagonals2[pieces[b][0]] - 1 !== board.diagonals2[pieces[b][1]])
+            score += VPAWN2
     }
 
     // Trapped bishops
-    if (pieces[B][0]) {
-        if (board.board[pieces[B][0] - 15] === P) score -= VPAWN2
-        if (board.board[pieces[B][0] - 17] === P) score -= VPAWN2
+    let trapped = 0
+    // Alfiles blancos
+    const bishopWhiteOffsets = [
+        [-15, -30], // diagonal derecha
+        [-17, -34]  // diagonal izquierda
+    ];
+
+    for (let i = 0; i < pieces[B].length; i++) {
+        const sq = pieces[B][i];
+        if (!sq) continue;
+        for (let diagonal of bishopWhiteOffsets) {
+            for (let offset of diagonal) {
+                if (board.board[sq + offset] === P) score -= VPAWN5;
+            }
+        }
     }
 
-    if (pieces[B][1]) {
-        if (board.board[pieces[B][1] - 15] === P) score -= VPAWN2
-        if (board.board[pieces[B][1] - 17] === P) score -= VPAWN2
-    }
+    // Alfiles negros
+    const bishopBlackOffsets = [
+        [15, 30],  // diagonal derecha
+        [17, 34]   // diagonal izquierda
+    ];
 
-    if (pieces[b][0]) {
-        if (board.board[pieces[b][0] + 15] === p) score += VPAWN2
-        if (board.board[pieces[b][0] + 17] === p) score += VPAWN2
-    }
-
-    if (pieces[b][1]) {
-        if (board.board[pieces[b][1] + 15] === p) score += VPAWN2
-        if (board.board[pieces[b][1] + 17] === p) score += VPAWN2
+    for (let i = 0; i < pieces[b].length; i++) {
+        const sq = pieces[b][i];
+        if (!sq) continue;
+        for (let diagonal of bishopBlackOffsets) {
+            for (let offset of diagonal) {
+                if (board.board[sq + offset] === p) score += VPAWN5;
+            }
+        }
     }
 
     // Queens / Kings
     // castiga a la dama por estar alejada de las columnas o diagonales del rey
 
     if (pieces[Q][0]) {
-        score -= VPAWN10 * (Math.abs(board.columns[pieces[Q][0]] - board.columns[pieces[k][0]]))
-        score -= VPAWN10 * (Math.abs(board.diagonals1[pieces[Q][0]] - board.diagonals1[pieces[k][0]]))
-        score -= VPAWN10 * (Math.abs(board.diagonals2[pieces[Q][0]] - board.diagonals2[pieces[k][0]]))
+        score -= VPAWN10 * Math.abs(board.columns[pieces[Q][0]] - board.columns[pieces[k][0]])
+        score -= VPAWN10 * Math.abs(board.diagonals1[pieces[Q][0]] - board.diagonals1[pieces[k][0]])
+        score -= VPAWN10 * Math.abs(board.diagonals2[pieces[Q][0]] - board.diagonals2[pieces[k][0]])
     }
     
     if (pieces[q][0]) {
-        score += VPAWN10 * (Math.abs(board.columns[pieces[q][0]] - board.columns[pieces[K][0]]))
-        score += VPAWN10 * (board.diagonals1[pieces[q][0]] - board.diagonals1[pieces[K][0]])
-        score += VPAWN10 * (board.diagonals2[pieces[q][0]] - board.diagonals2[pieces[K][0]])
+        score += VPAWN10 * Math.abs(board.columns[pieces[q][0]] - board.columns[pieces[K][0]])
+        score += VPAWN10 * Math.abs(board.diagonals1[pieces[q][0]] - board.diagonals1[pieces[K][0]])
+        score += VPAWN10 * Math.abs(board.diagonals2[pieces[q][0]] - board.diagonals2[pieces[K][0]])
     }
     
     // Rooks / Kings
     
     if (pieces[R][0]) {
-        score -= VPAWN4 * (Math.abs(board.columns[pieces[R][0]] - board.columns[pieces[k][0]]))
+        score -= Math.abs(board.columns[pieces[R][0]] - board.columns[pieces[k][0]]) * VPAWN10
     }
 
     if (pieces[R][1]) {
-        if (board.columns[pieces[R][1]] === board.columns[pieces[k][0]]) score += VPAWN10
+        score -= Math.abs(board.columns[pieces[R][1]] - board.columns[pieces[k][0]]) * VPAWN10
     }
 
     if (pieces[r][0]) {
-        if (board.columns[pieces[r][0]] === board.columns[pieces[K][0]]) score -= VPAWN10
+        score += Math.abs(board.columns[pieces[r][0]] - board.columns[pieces[K][0]]) * VPAWN10
     }
 
 
     if (pieces[r][1]) {
-        if (board.columns[pieces[r][1]] === board.columns[pieces[K][0]]) score -= VPAWN10
+        score += Math.abs(board.columns[pieces[r][1]] - board.columns[pieces[K][0]]) * VPAWN10
     }
 
     // Rooks / Queens
 
     if (pieces[R][0]) {
-        if (board.columns[pieces[R][0]] === board.columns[pieces[q][0]]) score += VPAWN10
+        score -= Math.abs(board.columns[pieces[R][0]] - board.columns[pieces[q][0]]) * VPAWN10
     }
 
     if (pieces[R][1]) {
-        if (board.columns[pieces[R][1]] === board.columns[pieces[q][0]]) score += VPAWN10
+        score -= Math.abs(board.columns[pieces[R][1]] - board.columns[pieces[q][0]]) * VPAWN10
     }
 
     if (pieces[r][0]) {
-        if (board.columns[pieces[r][0]] === board.columns[pieces[Q][0]]) score -= VPAWN10
+        score += Math.abs(board.columns[pieces[r][0]] - board.columns[pieces[Q][0]]) * VPAWN10
     }
 
     if (pieces[r][1]) {
-        if (board.columns[pieces[r][1]] === board.columns[pieces[Q][0]]) score -= VPAWN10
+        score += Math.abs(board.columns[pieces[r][1]] - board.columns[pieces[Q][0]]) * VPAWN10
     }
 
     // Bishops / Queens
 
     if (pieces[B][0]) {
-        if (board.diagonals1[pieces[B][0]] === board.diagonals1[pieces[q][0]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][0]] === board.diagonals2[pieces[q][0]]) score += VPAWN10
+        score -= Math.abs(board.diagonals1[pieces[B][0]] - board.diagonals1[pieces[q][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals2[pieces[B][0]] - board.diagonals2[pieces[q][0]]) * VPAWN5
     }
 
     if (pieces[B][1]) {
-        if (board.diagonals1[pieces[B][1]] === board.diagonals1[pieces[q][0]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][1]] === board.diagonals2[pieces[q][0]]) score += VPAWN10
+        score -= Math.abs(board.diagonals1[pieces[B][1]] - board.diagonals1[pieces[q][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals2[pieces[B][1]] - board.diagonals2[pieces[q][0]]) * VPAWN5
     }
 
     if (pieces[b][0]) {
-        if (board.diagonals1[pieces[b][0]] === board.diagonals1[pieces[Q][0]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][0]] === board.diagonals2[pieces[Q][0]]) score -= VPAWN10
+        score += Math.abs(board.diagonals1[pieces[b][0]] - board.diagonals1[pieces[Q][0]]) * VPAWN5
+        score += Math.abs(board.diagonals2[pieces[b][0]] - board.diagonals2[pieces[Q][0]]) * VPAWN5
     }
 
     if (pieces[b][1]) {
-        if (board.diagonals1[pieces[b][1]] === board.diagonals1[pieces[Q][0]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][1]] === board.diagonals2[pieces[Q][0]]) score -= VPAWN10
+        score += Math.abs(board.diagonals1[pieces[b][1]] - board.diagonals1[pieces[Q][0]]) * VPAWN5
+        score += Math.abs(board.diagonals2[pieces[b][1]] - board.diagonals2[pieces[Q][0]]) * VPAWN5
     }
 
     // Bishops / Kings
 
     if (pieces[B][0]) {
-        if (board.diagonals1[pieces[B][0]] === board.diagonals1[pieces[k][0]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][0]] === board.diagonals2[pieces[k][0]]) score += VPAWN10
+        score -= Math.abs(board.diagonals1[pieces[B][0]] - board.diagonals1[pieces[k][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals2[pieces[B][0]] - board.diagonals2[pieces[k][0]]) * VPAWN5
     }
 
     if (pieces[B][1]) {
-        if (board.diagonals1[pieces[B][1]] === board.diagonals1[pieces[k][0]]) score += VPAWN10
-        if (board.diagonals2[pieces[B][1]] === board.diagonals2[pieces[k][0]]) score += VPAWN10
+        score -= Math.abs(board.diagonals1[pieces[B][1]] - board.diagonals1[pieces[k][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals2[pieces[B][1]] - board.diagonals2[pieces[k][0]]) * VPAWN5
     }
 
     if (pieces[b][0]) {
-        if (board.diagonals1[pieces[b][0]] === board.diagonals1[pieces[K][0]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][0]] === board.diagonals2[pieces[K][0]]) score -= VPAWN10
+        score += Math.abs(board.diagonals1[pieces[b][0]] - board.diagonals1[pieces[K][0]]) * VPAWN5
+        score += Math.abs(board.diagonals2[pieces[b][0]] - board.diagonals2[pieces[K][0]]) * VPAWN5
     }
 
     if (pieces[b][1]) {
-        if (board.diagonals1[pieces[b][1]] === board.diagonals1[pieces[K][0]]) score -= VPAWN10
-        if (board.diagonals2[pieces[b][1]] === board.diagonals2[pieces[K][0]]) score -= VPAWN10
+        score += Math.abs(board.diagonals1[pieces[b][1]] - board.diagonals1[pieces[K][0]]) * VPAWN5
+        score += Math.abs(board.diagonals2[pieces[b][1]] - board.diagonals2[pieces[K][0]]) * VPAWN5
     }
 
     return score
@@ -3120,7 +3140,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
         moves = AI.sortMoves(board, moves, turn, ply, depth, ttEntry)
     }
 
-    let prune = cutNode && depth < 8 && !incheck && beta > (-MATE + AI.totaldepth) && alpha < (MATE - AI.totaldepth) && !dangerous
+    let prune = cutNode && !incheck && beta > (-MATE + AI.totaldepth) && alpha < (MATE - AI.totaldepth) && !dangerous
 
     let mateE = 0 // Mate threat extension
 
@@ -3128,45 +3148,41 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
     let staticEval = AI.evaluate(board, ply, alpha, beta, pvNode, incheck) | 0
     
-    if (cutNode) {
+    if (prune) {
         // PROBCUT
         const pc = probCut(board, depth, alpha, beta, ply, pvNode);
         if (pc !== null) {
             return pc;
         }
-    }
 
-    if (prune) {
-
-        
-        // // RAZORING (Strelka) (0 ELO)
-        // let razoringMargin = staticEval + MARGIN1*1.25;
+        // RAZORING (Strelka) (0 ELO)
+        let razoringMargin = staticEval + MARGIN1*1.25;
     
-        // if (razoringMargin < alpha) {
-        //     if (depth == 1) {
-        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
-        //         // console.log('r1')
-        //         return Math.max(new_razoringMargin, razoringMargin);
-        //     }
+        if (razoringMargin < alpha) {
+            if (depth == 1) {
+                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, false, 0, false, false)
+                // console.log('r1')
+                return Math.max(new_razoringMargin, razoringMargin);
+            }
     
-        //     razoringMargin += MARGIN1*1.75
+            razoringMargin += MARGIN1*1.75
     
-        //     if (razoringMargin < beta && depth <= 3) {
-        //         let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, pvNode, 0, false, false)
+            if (razoringMargin < beta && depth <= 3) {
+                let new_razoringMargin = AI.quiescenceSearch(board, alpha, beta, 0, ply, false, 0, false, false)
             
-        //         if (new_razoringMargin < beta) {
-        //             return Math.max(new_razoringMargin, razoringMargin);
-        //         }
-        //     }
-        // }
-
-        // HARD RAZORING
-        if (depth <= 2) {
-            if (staticEval + FUTILITYMARGIN[depth] < alpha) {
-                // La posición es demasiado mala, podar sin buscar
-                return staticEval;
+                if (new_razoringMargin < beta) {
+                    return Math.max(new_razoringMargin, razoringMargin);
+                }
             }
         }
+
+        // // HARD RAZORING
+        // if (depth <= 2) {
+        //     if (staticEval + FUTILITYMARGIN[depth] < alpha) {
+        //         // La posición es demasiado mala, podar sin buscar
+        //         return staticEval;
+        //     }
+        // }
 
     }
 
@@ -3220,7 +3236,6 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
                 AI.maxMovesCount++
                 return alpha
             }
-    
         }
 
         //Reducciones
