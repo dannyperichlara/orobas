@@ -2091,56 +2091,45 @@ AI.logistic = (x, limit)=> {
 
 AI.getPawnShield = (board)=>{
 
-    if (AI.phase > MIDGAME) return 0
+    if (AI.phase !== MIDGAME) return 0
 
-    let score = 0
+    let defendersW = 0
+    let defendersB = 0
 
     // Enroque de rey blanco
-    if (board.whiteKingIndex === 118 || board.whiteKingIndex === 119) {
-        if (board.board[101] !== P && board.board[85] !== P && board.board[69] !== P) {
-            score -= VPAWN3
-        }
-
-        if (board.board[86] !== P && board.board[102] !== P) {
-            score -= VPAWN3
+    if (board.whiteKingIndex === 118 || board.whiteKingIndex === 119) {
+        const shieldSquares = [85, 86, 87, 101, 102, 103];
+        for (let sq of shieldSquares) {
+            if (board.board[sq] === 0) defendersW--;
         }
     }
 
     // Enroque de dama blanco
-    if (board.whiteKingIndex === 114 || board.whiteKingIndex === 113) {
-        if (board.board[66] !== P && board.board[82] !== P && board.board[98] !== P) {
-            score -= VPAWN3
-        }
-
-        if (board.board[81] !== P && board.board[97] !== P) {
-            score -= VPAWN3
+    if (board.whiteKingIndex === 114 || board.whiteKingIndex === 113) {
+        const shieldSquares = [80, 81, 82, 96, 97, 98]; // ajusta el último si quieres incluir la casilla del rey
+        for (let sq of shieldSquares) {
+            if (board.board[sq] === 0) defendersW--;
         }
     }
 
 
     // Enroque de rey negro
-    if (board.blackKingIndex === 6 || board.blackKingIndex === 7) {
-        if (board.board[21] !== p && board.board[37] !== p && board.board[53] !== p) {
-            score += VPAWN3
-        }
-
-        if (board.board[22] !== p && board.board[38] !== p) {
-            score += VPAWN3
+    if (board.blackKingIndex === 6 || board.blackKingIndex === 7) {
+        const shieldSquares = [21, 22, 23, 37, 38, 39];
+        for (let sq of shieldSquares) {
+            if (board.board[sq] === 0) defendersB--;
         }
     }
 
     // Enroque de dama negro
-    if (board.blackKingIndex === 1 || board.blackKingIndex === 2) {
-        if (board.board[18] !== p && board.board[34] !== p && board.board[50] !== p) {
-            score += VPAWN3
-        }
-
-        if (board.board[17] !== p && board.board[33] !== p) {
-            score += VPAWN3
+    if (board.blackKingIndex === 1 || board.blackKingIndex === 2) {
+        const shieldSquares = [16, 17, 18, 32, 33, 34];
+        for (let sq of shieldSquares) {
+            if (board.board[sq] === 0) defendersB--;
         }
     }
-    
-    return score
+        
+    return MARGIN5 * (defendersW - defendersB)
 }
 
 AI.getMobility = (board) => {
@@ -3085,6 +3074,8 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     }
 
     let turn = board.turn
+    let opponentTurn = turn === WHITE? BLACK : WHITE
+    let sign = turn === WHITE? 1 : -1
     let hashkey = board.hashkey
     let moves = []
 
@@ -3102,8 +3093,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
         return AI.quiescenceSearch(board, alpha, beta, depth, ply, pvNode)
     }
 
-    let opponentTurn = turn === WHITE? BLACK : WHITE
-    let sign = turn === WHITE? 1 : -1
+
 
     if (ttEntry && ttEntry.depth >= depth) {
         if (ttEntry.flag === EXACT) {
