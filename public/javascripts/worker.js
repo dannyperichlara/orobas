@@ -1406,7 +1406,7 @@ AI = {
     f: 0,
     previousls: 0,
     lastscore: 0,
-    nullWindowFactor: 12 // 330 ELO
+    nullWindowFactor: 20 // 330 ELO
 }
 
 // ÍNDICES
@@ -3073,23 +3073,29 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
     if (ply > AI.totaldepth) ply = AI.totaldepth
 
-    let mating_value = MATE - ply;
+    if (pvNode) AI.pvnodes++
 
-    if (mating_value < beta) {
-        beta = mating_value
-        if (alpha >= mating_value) {
-            // console.log('mate')
-            return mating_value
+    let cutNode = !pvNode
+
+    if (cutNode) {
+        let mating_value = MATE - ply;
+    
+        if (mating_value < beta) {
+            beta = mating_value
+            if (alpha >= mating_value) {
+                // console.log('mate')
+                return mating_value
+            }
         }
-    }
-    
-    mating_value = -MATE + ply;
-    
-    if (mating_value > alpha) {
-        alpha = mating_value
-        if (beta <= mating_value) {
-            // console.log('mate')
-            return mating_value
+        
+        mating_value = -MATE + ply;
+        
+        if (mating_value > alpha) {
+            alpha = mating_value
+            if (beta <= mating_value) {
+                // console.log('mate')
+                return mating_value
+            }
         }
     }
 
@@ -3098,10 +3104,6 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
     let sign = turn === WHITE? 1 : -1
     let hashkey = board.hashkey
     let moves = []
-
-    if (pvNode) AI.pvnodes++
-
-    let cutNode = !pvNode
 
     let ttEntry = AI.ttGet(turn, hashkey)
 
