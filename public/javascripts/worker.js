@@ -1520,16 +1520,15 @@ const MINOR = AI.POV[1] / AI.nullWindowFactor | 0; // menor pieza no-pawn (cabal
 let FUTILITYMARGIN = []
 
 for (let depth = 0; depth <= AI.totaldepth; depth++) {
-    FUTILITYMARGIN[depth] = depth * VPAWN;
-  }
+    // Margen más agresivo: poda más temprano
+    FUTILITYMARGIN[depth] = Math.floor(depth * MARGIN1 * 1.2);
+}
 
-// Inicializar array
+// Inicializar array de LMP más agresivo
 AI.LMP = [];
-
-// Total depth de tu motor
 for (let depth = 0; depth <= AI.totaldepth; depth++) {
-    // Nunca menos de 1 movimiento
-    AI.LMP[depth] = 2 + depth * depth;
+    // Más agresivo: poda incluso antes de los primeros movimientos
+    AI.LMP[depth] = Math.max(1, 1 + Math.floor(depth * 0.75));
 }
 
 console.log('Max material value', AI.maxMaterialValue)
@@ -1765,6 +1764,23 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         [k]: [],
     }
 
+    // Inicializar bitboards por pieza
+    let bitboards = {}
+
+    bitboards[P] = 0n
+    bitboards[N] = 0n
+    bitboards[B] = 0n
+    bitboards[R] = 0n
+    bitboards[Q] = 0n
+    bitboards[K] = 0n
+    bitboards[p] = 0n
+    bitboards[n] = 0n
+    bitboards[b] = 0n
+    bitboards[r] = 0n
+    bitboards[q] = 0n
+    bitboards[k] = 0n
+
+
     for (let i = 0; i < 120; i++) {
         if (i & 0x88) {
             i+=7
@@ -1780,6 +1796,14 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         pieces[piece].push(i)
 
         pieceCount[piece]++
+
+        let idx = board.board64[i];
+
+        if (idx === null) continue; // asegurarse de no convertir null
+
+        let bitIndex = BigInt(idx); // convertir Number -> BigInt
+        bitboards[piece] |= 1n << bitIndex;
+
 
         let turn = board.color(piece)
         let sign = turn === WHITE? 1 : -1
@@ -1854,28 +1878,29 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
     // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
 
     if (pvNode) {
-        // if (score - VPAWN >= beta) {
-        //     let nullWindowScore = beta / AI.nullWindowFactor | 0
-    
-        //     AI.lazynodes++
-    
-        //     return sign * nullWindowScore
-        // }
-    
-        // if (score + VPAWN <= alpha) {
-        //     let nullWindowScore = alpha / AI.nullWindowFactor | 0
-    
-        //     AI.lazynodes++
-    
-        //     return sign * nullWindowScore
-        // }
 
+        if (score - VPAWN >= beta) {
+            let nullWindowScore = beta / AI.nullWindowFactor | 0
+    
+            AI.lazynodes++
+    
+            return sign * nullWindowScore
+        }
+    
+        if (score + VPAWN <= alpha) {
+            let nullWindowScore = score / AI.nullWindowFactor | 0
+    
+            AI.lazynodes++
+    
+            return sign * nullWindowScore
+        }
         // Evaluación posicional
         let positional = 0
     
         positional += AI.getPositional(board, pieces)
-        positional += AI.getUnderdevelopment(board, pieces)
-        positional += AI.getMobility(board).score
+        // positional += AI.getUnderdevelopment(board, pieces)
+        // positional += AI.getMobility(board).score
+
         positional += AI.undefendedPieces(board, pieces)
 
         let clamp = positional | 0
@@ -3225,11 +3250,9 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
         if (!move.isCapture) nonCaptures++
 
-        if (cutNode && !move.isCapture && !move.killer && !move.isPromotion) {
+        if (prune && !move.isCapture && !move.killer && !move.isPromotion) {
             // Futility pruning
-            let margin = FUTILITYMARGIN[depth];
-        
-            if (staticEval + margin <= alpha) {
+            if (staticEval + FUTILITYMARGIN[depth] <= alpha) {
                 continue
             }
 
@@ -3477,7 +3500,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
