@@ -1898,9 +1898,8 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         let positional = 0
     
         positional += AI.getPositional(board, pieces)
-        // positional += AI.getUnderdevelopment(board, pieces)
-        // positional += AI.getMobility(board).score
-
+        positional += AI.getUnderdevelopment(board, pieces)
+        positional += AI.getMobility(board).score
         positional += AI.undefendedPieces(board, pieces)
 
         let clamp = positional | 0
