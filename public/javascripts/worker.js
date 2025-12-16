@@ -1406,7 +1406,7 @@ AI = {
     f: 0,
     previousls: 0,
     lastscore: 0,
-    nullWindowFactor: 20 // 330 ELO
+    nullWindowFactor: 12 // 330 ELO
 }
 
 // ÍNDICES
@@ -1873,12 +1873,7 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
         score += AI.getPawnShield(board)
     }
 
-    // let winning = Math.abs(score) > VPAWNx3
-
-    // Lazy Futility  (+164) 1r3rk1/1pp2ppp/p5b1/3NR3/1Pq5/6QP/5PP1/5RK1 b - - 4 24
-
     if (pvNode) {
-
         if (score - VPAWN >= beta) {
             let nullWindowScore = beta / AI.nullWindowFactor | 0
     
@@ -1926,19 +1921,19 @@ AI.evaluate = function (board, ply, alpha, beta, pvNode, incheck, illegalMovesSo
 AI.undefendedPieces = (board, pieces)=>{
     let score = 0
 
-    if (pieces[N][0] && !board.isSquareAttacked(pieces[N][0], WHITE)) score -= VPAWN2
-    if (pieces[N][1] && !board.isSquareAttacked(pieces[N][1], WHITE)) score -= VPAWN2
-    if (pieces[B][0] && !board.isSquareAttacked(pieces[B][0], WHITE)) score -= VPAWN2
-    if (pieces[B][1] && !board.isSquareAttacked(pieces[B][1], WHITE)) score -= VPAWN2
-    if (pieces[R][0] && !board.isSquareAttacked(pieces[R][0], WHITE)) score -= VPAWN2
-    if (pieces[R][1] && !board.isSquareAttacked(pieces[R][1], WHITE)) score -= VPAWN2
+    if (pieces[N][0] && board.isSquareAttacked(pieces[N][0], WHITE)) score += VPAWN4
+    if (pieces[N][1] && board.isSquareAttacked(pieces[N][1], WHITE)) score += VPAWN4
+    if (pieces[B][0] && board.isSquareAttacked(pieces[B][0], WHITE)) score += VPAWN4
+    if (pieces[B][1] && board.isSquareAttacked(pieces[B][1], WHITE)) score += VPAWN4
+    if (pieces[R][0] && board.isSquareAttacked(pieces[R][0], WHITE)) score += VPAWN4
+    if (pieces[R][1] && board.isSquareAttacked(pieces[R][1], WHITE)) score += VPAWN4
 
-    if (pieces[n][0] && !board.isSquareAttacked(pieces[n][0], BLACK)) score += VPAWN2
-    if (pieces[n][1] && !board.isSquareAttacked(pieces[n][1], BLACK)) score += VPAWN2
-    if (pieces[b][0] && !board.isSquareAttacked(pieces[b][0], BLACK)) score += VPAWN2
-    if (pieces[b][1] && !board.isSquareAttacked(pieces[b][1], BLACK)) score += VPAWN2
-    if (pieces[r][0] && !board.isSquareAttacked(pieces[r][0], BLACK)) score += VPAWN2
-    if (pieces[r][1] && !board.isSquareAttacked(pieces[r][1], BLACK)) score += VPAWN2
+    if (pieces[n][0] && board.isSquareAttacked(pieces[n][0], BLACK)) score -= VPAWN4
+    if (pieces[n][1] && board.isSquareAttacked(pieces[n][1], BLACK)) score -= VPAWN4
+    if (pieces[b][0] && board.isSquareAttacked(pieces[b][0], BLACK)) score -= VPAWN4
+    if (pieces[b][1] && board.isSquareAttacked(pieces[b][1], BLACK)) score -= VPAWN4
+    if (pieces[r][0] && board.isSquareAttacked(pieces[r][0], BLACK)) score -= VPAWN4
+    if (pieces[r][1] && board.isSquareAttacked(pieces[r][1], BLACK)) score -= VPAWN4
 
     return score
     
@@ -1965,6 +1960,8 @@ AI.getPositional = (board, pieces)=>{
     if (board.board[6] === k && board.board[7] === r) score += VPAWNx2
     if (board.board[5] === k && board.board[7] === r) score += VPAWN
 
+    
+
     // Bishop pairs
     if (pieces[B][0] && pieces[B][1]) {
         if (board.diagonals1[pieces[B][0]] + 1 !== board.diagonals1[pieces[B][1]] && 
@@ -1981,6 +1978,8 @@ AI.getPositional = (board, pieces)=>{
             board.diagonals2[pieces[b][0]] - 1 !== board.diagonals2[pieces[b][1]])
             score += VPAWN2
     }
+
+    
 
     // Trapped bishops
     let trapped = 0
@@ -2016,6 +2015,8 @@ AI.getPositional = (board, pieces)=>{
         }
     }
 
+    
+
     // Queens / Kings
     // castiga a la dama por estar alejada de las columnas o diagonales del rey
 
@@ -2030,64 +2031,27 @@ AI.getPositional = (board, pieces)=>{
         score += VPAWN10 * Math.abs(board.diagonals1[pieces[q][0]] - board.diagonals1[pieces[K][0]])
         score += VPAWN10 * Math.abs(board.diagonals2[pieces[q][0]] - board.diagonals2[pieces[K][0]])
     }
-    
-    // Rooks / Kings
-    
-    if (pieces[R][0]) {
-        score -= Math.abs(board.columns[pieces[R][0]] - board.columns[pieces[k][0]]) * VPAWN10
-    }
-
-    if (pieces[R][1]) {
-        score -= Math.abs(board.columns[pieces[R][1]] - board.columns[pieces[k][0]]) * VPAWN10
-    }
-
-    if (pieces[r][0]) {
-        score += Math.abs(board.columns[pieces[r][0]] - board.columns[pieces[K][0]]) * VPAWN10
-    }
-
-
-    if (pieces[r][1]) {
-        score += Math.abs(board.columns[pieces[r][1]] - board.columns[pieces[K][0]]) * VPAWN10
-    }
-
-    // Rooks / Queens
-
-    if (pieces[R][0]) {
-        score -= Math.abs(board.columns[pieces[R][0]] - board.columns[pieces[q][0]]) * VPAWN10
-    }
-
-    if (pieces[R][1]) {
-        score -= Math.abs(board.columns[pieces[R][1]] - board.columns[pieces[q][0]]) * VPAWN10
-    }
-
-    if (pieces[r][0]) {
-        score += Math.abs(board.columns[pieces[r][0]] - board.columns[pieces[Q][0]]) * VPAWN10
-    }
-
-    if (pieces[r][1]) {
-        score += Math.abs(board.columns[pieces[r][1]] - board.columns[pieces[Q][0]]) * VPAWN10
-    }
 
     // Bishops / Queens
 
     if (pieces[B][0]) {
-        score -= Math.abs(board.diagonals1[pieces[B][0]] - board.diagonals1[pieces[q][0]]) * VPAWN5
-        score -= Math.abs(board.diagonals2[pieces[B][0]] - board.diagonals2[pieces[q][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals1[pieces[B][0]] - board.diagonals1[pieces[q][0]]) * VPAWN10
+        score -= Math.abs(board.diagonals2[pieces[B][0]] - board.diagonals2[pieces[q][0]]) * VPAWN10
     }
 
     if (pieces[B][1]) {
-        score -= Math.abs(board.diagonals1[pieces[B][1]] - board.diagonals1[pieces[q][0]]) * VPAWN5
-        score -= Math.abs(board.diagonals2[pieces[B][1]] - board.diagonals2[pieces[q][0]]) * VPAWN5
+        score -= Math.abs(board.diagonals1[pieces[B][1]] - board.diagonals1[pieces[q][0]]) * VPAWN10
+        score -= Math.abs(board.diagonals2[pieces[B][1]] - board.diagonals2[pieces[q][0]]) * VPAWN10
     }
 
     if (pieces[b][0]) {
-        score += Math.abs(board.diagonals1[pieces[b][0]] - board.diagonals1[pieces[Q][0]]) * VPAWN5
-        score += Math.abs(board.diagonals2[pieces[b][0]] - board.diagonals2[pieces[Q][0]]) * VPAWN5
+        score += Math.abs(board.diagonals1[pieces[b][0]] - board.diagonals1[pieces[Q][0]]) * VPAWN10
+        score += Math.abs(board.diagonals2[pieces[b][0]] - board.diagonals2[pieces[Q][0]]) * VPAWN10
     }
 
     if (pieces[b][1]) {
-        score += Math.abs(board.diagonals1[pieces[b][1]] - board.diagonals1[pieces[Q][0]]) * VPAWN5
-        score += Math.abs(board.diagonals2[pieces[b][1]] - board.diagonals2[pieces[Q][0]]) * VPAWN5
+        score += Math.abs(board.diagonals1[pieces[b][1]] - board.diagonals1[pieces[Q][0]]) * VPAWN10
+        score += Math.abs(board.diagonals2[pieces[b][1]] - board.diagonals2[pieces[Q][0]]) * VPAWN10
     }
 
     // Bishops / Kings
@@ -3296,7 +3260,7 @@ AI.PVS = function (board, alpha, beta, depth, ply, dangerous, pvNode) {
 
             let dangerous = move.score < 0 || inCheckAfterMove// || ABS[move.piece] === K
             
-            if (!move.isCapture && !move.killer && !inCheckAfterMove && AI.history[move.piece][move.to] < 20) {
+            if (!move.isCapture && !move.killer && !inCheckAfterMove && AI.history[move.piece][move.to] < 200) {
                 R += AI.LMR_TABLE[depth][legal] | 0 // (240 ELO)
                 
                 //History reductions (70 ELO)
@@ -3499,7 +3463,7 @@ AI.MTDF = function (board, f, d) {
 AI.MTDF2 = function (board, f, d, lowerBound, upperBound) {
     //Esta línea permite que el algoritmo funcione como PVS normal
     // return AI.PVS(board, -Infinity, Infinity, d, 1)
-    return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
+    // return AI.PVS(board, lowerBound, upperBound, d, 1, false, true)
     // return AI.BNS(board, -INFINITY, INFINITY, d)
     
     let bound = [lowerBound, upperBound] // lower, upper
@@ -3710,7 +3674,7 @@ AI.search = function (board, options) {
             let alpha = depth < 8? -INFINITY : AI.f - SMALLMARGIN
             let beta = depth < 8? INFINITY : AI.f + SMALLMARGIN
 
-            if (ttEntry && ttEntry.depth > depth - 1) {
+            if (false && ttEntry && ttEntry.depth > depth - 1) {
                 AI.f = ttEntry.score
                 AI.bestmove = ttEntry.move
             } else {
